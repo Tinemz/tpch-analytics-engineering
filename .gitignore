@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Generated TPC-H data (regenerate locally, don't version large binaries)
+tpch_dataset/
+
+# OS
+.DS_Store
+
+# Env / secrets
+.env
+*.env
+gcp-credentials*.json
