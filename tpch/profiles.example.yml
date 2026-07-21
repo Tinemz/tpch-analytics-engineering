@@ -12,7 +12,7 @@ tpch:
     dev:
       type: bigquery
       method: oauth
-      database: dbt-learning-tinem   # id do seu projeto no BigQuery
+      database: SEU_PROJECT_ID       # id do seu projeto no BigQuery
       schema: tpch_dev               # dataset onde o dbt cria os SEUS models
       location: US                   # precisa bater com a região do dataset cru
       threads: 4
