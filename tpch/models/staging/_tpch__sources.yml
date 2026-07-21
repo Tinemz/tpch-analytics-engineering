@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: tpch
+    # database omitido de propósito: herda o project do profiles.yml (target)
+    schema: tpch_raw               # dataset com as 8 tabelas cruas
+    tables:
+      - name: customer
+      - name: lineitem
+      - name: orders
+      - name: part
+      - name: partsupp
+      - name: supplier
+      - name: nation
+      - name: region
