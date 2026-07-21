@@ -10,7 +10,15 @@ tpch_dataset/
 # OS
 .DS_Store
 
+# dbt
+target/
+dbt_packages/
+logs/
+.user.yml
+
 # Env / secrets
 .env
 *.env
 gcp-credentials*.json
+# O profiles.yml real fica em ~/.dbt/ — versione apenas o profiles.example.yml
+profiles.yml
