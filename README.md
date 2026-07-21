@@ -103,7 +103,7 @@ tpch:
     dev:
       type: bigquery
       method: oauth                  # reaproveita o gcloud (ADC) — sem chave
-      database: dbt-learning-tinem   # id do seu projeto GCP
+      database: SEU_PROJECT_ID       # id do seu projeto GCP
       schema: tpch_dev               # dataset onde o dbt cria os models
       location: US                   # precisa bater com o dataset tpch_raw
       threads: 4
