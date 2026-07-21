@@ -1,0 +1,18 @@
+# Exemplo de perfil do dbt para BigQuery.
+#
+# Copie para ~/.dbt/profiles.yml e ajuste `database` para o id do seu projeto GCP.
+# Autenticação por OAuth (Application Default Credentials) — NÃO usa chave de
+# service account. Rode uma vez antes:  gcloud auth application-default login
+#
+# O nome do perfil (tpch) precisa bater com `profile:` no dbt_project.yml.
+
+tpch:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      database: SEU_PROJECT_ID       # id do seu projeto no BigQuery
+      schema: tpch_dev               # dataset onde o dbt cria os SEUS models
+      location: US                   # precisa bater com a região do dataset cru
+      threads: 4
