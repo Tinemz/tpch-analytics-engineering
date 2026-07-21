@@ -2,7 +2,7 @@ version: 2
 
 sources:
   - name: tpch
-    database: dbt-learning-tinem   # project do BigQuery
+    # database omitido de propósito: herda o project do profiles.yml (target)
     schema: tpch_raw               # dataset com as 8 tabelas cruas
     tables:
       - name: customer
