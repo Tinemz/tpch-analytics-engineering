@@ -1,0 +1,31 @@
+# Profile para os ambientes AUTOMATIZADOS (CI e CD). Versionado de propósito:
+# NÃO contém segredo nenhum, apenas env_var() preenchidas em runtime pelo
+# GitHub Actions. A credencial real (chave da service-account) vive no GitHub
+# Secret GCP_SA_KEY e é escrita num keyfile pelo próprio workflow.
+#
+# Os workflows copiam este arquivo para ~/.dbt/profiles.yml na máquina efêmera.
+# O nome do profile ('tpch') tem que bater com `profile:` do dbt_project.yml.
+#
+#   target ci   -> usado pela CI (PR): schema efêmero por PR, dropado no fim.
+#   target prod -> usado pelo CD (merge/manual): escreve no dataset tpch_prod.
+#
+# Dev local NÃO usa este arquivo: você segue no ~/.dbt/profiles.yml com oauth.
+tpch:
+  target: ci
+  outputs:
+    ci:
+      type: bigquery
+      method: service-account
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS') }}"
+      project: "{{ env_var('GCP_PROJECT') }}"
+      dataset: "{{ env_var('DBT_CI_SCHEMA') }}"   # ex: dbt_ci_pr_42 (isolado, some no fim)
+      location: US
+      threads: 4
+    prod:
+      type: bigquery
+      method: service-account
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS') }}"
+      project: "{{ env_var('GCP_PROJECT') }}"
+      dataset: tpch_prod                          # persistente: a fonte da verdade
+      location: US
+      threads: 4

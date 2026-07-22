@@ -1,0 +1,55 @@
+name: dbt CD (prod)
+
+# GATILHOS:
+#   push na main tocando o projeto dbt  -> deploy automático (o "merge deu deploy")
+#   workflow_dispatch                    -> botão "Run workflow" pra rodar na mão
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tpch/**"
+  workflow_dispatch:
+
+# Deploys de produção NUNCA se cancelam no meio: se dois merges caírem juntos,
+# o segundo espera o primeiro terminar em vez de abortá-lo (evita estado parcial).
+concurrency:
+  group: cd-prod
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: tpch
+
+env:
+  GCP_PROJECT: dbt-learning-tinem
+  GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-credentials-cd.json
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Instala Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instala o dbt (adapter BigQuery)
+        run: pip install dbt-bigquery
+
+      - name: Escreve o keyfile a partir do secret
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+
+      - name: Monta o profiles.yml
+        run: |
+          mkdir -p ~/.dbt
+          cp deploy/profiles.template.yml ~/.dbt/profiles.yml
+
+      # O deploy: constrói e testa TUDO no dataset de produção (tpch_prod).
+      # Diferente da CI, aqui NÃO há schema efêmero nem drop — é persistente.
+      - name: dbt build (produção -> tpch_prod)
+        run: dbt build --target prod
