@@ -21,7 +21,8 @@ flowchart LR
 5. [O projeto dbt](#5-o-projeto-dbt)
 6. [Consultar os dados (DBeaver / BigQuery Studio)](#6-consultar-os-dados)
 7. [Troubleshooting](#7-troubleshooting)
-8. [Estrutura do repositório](#estrutura-do-repositório)
+8. [CI/CD (GitHub Actions)](#8-cicd-github-actions)
+9. [Estrutura do repositório](#estrutura-do-repositório)
 
 ---
 
@@ -180,16 +181,73 @@ Erros reais que apareceram montando este projeto e como resolver:
 | `Storage API is not available for query` | Consequência do DNS instável (falha ao buscar o token OAuth) | Corrigir o DNS (acima) |
 | "A criação da chave da conta de serviço está desativada" | Org policy `iam.disableServiceAccountKeyCreation` | Não precisa de chave — use `method: oauth` (ADC) |
 
+## 8. CI/CD (GitHub Actions)
+
+O repositório roda um pipeline de **CI/CD** que simula um fluxo de trabalho real:
+cada mudança é validada num Pull Request antes de entrar, e o que entra na `main`
+é publicado em produção automaticamente. Tudo com **GitHub Actions** — nenhuma
+máquina fica ligada 24/7; o GitHub aluga um runner limpo a cada evento.
+
+```mermaid
+flowchart LR
+    subgraph local[Dev local]
+        A[dbt build<br/>target dev] --> A2[(tpch_dev<br/>oauth)]
+    end
+    A -.abre PR.-> CI
+    subgraph gha[GitHub Actions]
+        CI[["CI · ci.yml<br/>gatilho: pull_request<br/>dbt build --target ci"]] --> CI2[(dbt_ci_pr_N<br/>efêmero → dropado)]
+        CD[["CD · cd.yml<br/>gatilho: push main / manual<br/>dbt build --target prod"]] --> CD2[(tpch_prod<br/>persistente)]
+    end
+    CI -.merge na main.-> CD
+```
+
+**Um código, três alvos** — o mesmo projeto dbt aponta para datasets diferentes
+conforme o contexto:
+
+| Contexto | Gatilho | Dataset no BigQuery | Vida do dado |
+|---|---|---|---|
+| **Dev** | você, na mão (oauth) | `tpch_dev` | persistente, seu playground |
+| **CI** | abrir/atualizar um PR | `dbt_ci_pr_<N>` | efêmero — criado e **dropado** no mesmo run |
+| **CD** | merge na `main` ou botão manual | `tpch_prod` | persistente, a fonte da verdade |
+
+**Autenticação sem segredo no repo.** Os workflows usam uma *service account* via
+`method: service-account`. A chave **não** vive no código: fica no **GitHub Secret**
+`GCP_SA_KEY` e é materializada num keyfile em runtime. O
+[`tpch/deploy/profiles.template.yml`](tpch/deploy/profiles.template.yml) é versionado
+de propósito porque contém **apenas** referências `env_var()` — zero credencial.
+É o mesmo princípio do dev local, só trocando `oauth` por `service-account`.
+
+> **Por que a CI usa um schema efêmero?** Para isolar cada PR: dois PRs abertos ao
+> mesmo tempo não se atropelam, e nada suja o `tpch_dev` (seu) nem o `tpch_prod`.
+> O `dbt-bigquery` **cria o dataset sozinho** quando ele não existe; a limpeza no
+> fim do workflow (`delete_dataset`, `if: always()`) evita datasets órfãos.
+
+Arquivos:
+
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — CI, roda em cada PR.
+- [`.github/workflows/cd.yml`](.github/workflows/cd.yml) — CD, roda no merge/manual.
+- [`tpch/deploy/profiles.template.yml`](tpch/deploy/profiles.template.yml) — profile
+  dos ambientes automatizados (targets `ci` e `prod`), sem segredo.
+
+> **Pré-requisito no GCP:** a service account precisa dos papéis
+> `roles/bigquery.jobUser` e `roles/bigquery.dataEditor` no projeto para rodar
+> queries e criar os datasets.
+
 ## Estrutura do repositório
 
 ```
 .
+├── .github/workflows/
+│   ├── ci.yml                 # CI: dbt build em schema efêmero a cada PR
+│   └── cd.yml                 # CD: dbt build em tpch_prod no merge/manual
 ├── create_tpch.ipynb          # leitura exploratória dos Parquet com pandas
 ├── requirements.txt           # tpchgen-cli + libs de exploração
 ├── tpch_dataset/              # dados gerados (ignorado no git)
 └── tpch/                      # projeto dbt
     ├── dbt_project.yml
-    ├── profiles.example.yml   # modelo de ~/.dbt/profiles.yml
+    ├── profiles.example.yml   # modelo de ~/.dbt/profiles.yml (dev, oauth)
+    ├── deploy/
+    │   └── profiles.template.yml  # profile de CI/CD (env_var, sem segredo)
     └── models/staging/
         ├── _tpch__sources.yml
         ├── stg_tpch__customer.sql
@@ -201,3 +259,6 @@ Erros reais que apareceram montando este projeto e como resolver:
 - Criar os staging models das demais tabelas (`lineitem`, `part`, `supplier`, ...).
 - Adicionar testes (`unique`, `not_null`) nas chaves em `_tpch__sources.yml`.
 - Construir a camada de marts (fatos e dimensões) sobre os staging models.
+- Evoluir a CI para **Slim CI** (`state:modified+` com deferral) — rodar só o que mudou.
+- Orquestração dedicada (Dagster) e camada de visualização (Evidence.dev / Lightdash).
+- Definir métricas no **Semantic Layer** (MetricFlow) sobre os marts.
