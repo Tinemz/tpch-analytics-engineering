@@ -1,0 +1,74 @@
+name: dbt CI
+
+# GATILHO: roda a cada PR que mexe no projeto dbt (e permite disparo manual).
+on:
+  pull_request:
+    paths:
+      - "tpch/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+# Se você empurrar vários commits no mesmo PR, cancela o run anterior
+# em vez de acumular fila (economiza minutos e bytes do BigQuery).
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Todos os comandos rodam de dentro da pasta do projeto dbt.
+defaults:
+  run:
+    working-directory: tpch
+
+env:
+  GCP_PROJECT: dbt-learning-tinem
+  # Schema efêmero e único por PR — isola este run de tudo (dev, prod, outros PRs).
+  DBT_CI_SCHEMA: dbt_ci_pr_${{ github.event.pull_request.number || github.run_id }}
+  # Caminho onde a chave será materializada. O nome casa com o padrão do
+  # .gitignore (gcp-credentials*.json) por segurança extra.
+  GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-credentials-ci.json
+
+jobs:
+  build:
+    runs-on: ubuntu-latest   # a máquina limpa e gratuita do GitHub
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Instala Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instala o dbt (adapter BigQuery)
+        run: pip install dbt-bigquery
+
+      # Materializa o segredo num arquivo. Usa env var + printf (nunca echo do
+      # secret direto) pra evitar injeção e lidar bem com o JSON multi-linha.
+      - name: Escreve o keyfile a partir do secret
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+
+      # Copia o template (estrutura) para onde o dbt procura o profiles.yml.
+      - name: Monta o profiles.yml de CI
+        run: |
+          mkdir -p ~/.dbt
+          cp ci/profiles.template.yml ~/.dbt/profiles.yml
+
+      # O coração da CI: constrói os modelos + roda os testes no schema isolado.
+      - name: dbt build (schema isolado do PR)
+        run: dbt build --target ci
+
+      # Limpeza: dropa o schema do PR SEMPRE (mesmo se o build falhar),
+      # pra não deixar dataset órfão acumulando no BigQuery.
+      - name: Dropa o schema de CI
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          from google.cloud import bigquery
+          client = bigquery.Client(project=os.environ["GCP_PROJECT"])
+          ds = f"{os.environ['GCP_PROJECT']}.{os.environ['DBT_CI_SCHEMA']}"
+          client.delete_dataset(ds, delete_contents=True, not_found_ok=True)
+          print("dropped", ds)
+          PY
