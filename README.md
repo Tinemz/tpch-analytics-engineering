@@ -222,6 +222,21 @@ de propósito porque contém **apenas** referências `env_var()` — zero creden
 > O `dbt-bigquery` **cria o dataset sozinho** quando ele não existe; a limpeza no
 > fim do workflow (`delete_dataset`, `if: always()`) evita datasets órfãos.
 
+### Fluxo para subir um modelo novo
+
+```bash
+git checkout -b feat/stg_meu_modelo   # 1. sempre numa branch, nunca direto na main
+# ... escreve/edita o modelo ...
+cd tpch && dbt build --select stg_meu_modelo   # 2. testa no dev (target dev, oauth) -> tpch_dev
+git add -A && git commit -m "feat: add stg_meu_modelo" && git push -u origin feat/stg_meu_modelo
+gh pr create --fill                   # 3. abre o PR -> a CI valida sozinha (schema efêmero)
+# 4. com a CI ✅ (e review), faz o merge -> o CD publica em tpch_prod
+```
+
+> ⚠️ **Nunca commite direto na `main`.** Isso pula a CI e, como o CD dispara no
+> push da `main`, publicaria em produção sem nenhuma validação. Toda mudança passa
+> por branch → PR → CI → merge.
+
 Arquivos:
 
 - [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — CI, roda em cada PR.
