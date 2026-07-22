@@ -53,7 +53,7 @@ jobs:
       - name: Monta o profiles.yml de CI
         run: |
           mkdir -p ~/.dbt
-          cp ci/profiles.template.yml ~/.dbt/profiles.yml
+          cp deploy/profiles.template.yml ~/.dbt/profiles.yml
 
       # O coração da CI: constrói os modelos + roda os testes no schema isolado.
       - name: dbt build (schema isolado do PR)
