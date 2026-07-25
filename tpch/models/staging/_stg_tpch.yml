@@ -1,0 +1,252 @@
+version: 2
+
+models:
+  - name: stg_tpch__region
+    description: "Regiões geográficas (5 linhas). Topo da hierarquia region -> nation."
+    columns:
+      - name: id
+        description: "Chave primária da região."
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        description: "Nome da região (AFRICA, AMERICA, ASIA, EUROPE, MIDDLE EAST)."
+        data_tests:
+          - not_null
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+
+  - name: stg_tpch__nation
+    description: "Países (25 linhas), cada um pertencente a uma região."
+    columns:
+      - name: id
+        description: "Chave primária do país."
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        description: "Nome do país."
+        data_tests:
+          - not_null
+      - name: region_id
+        description: "FK para stg_tpch__region."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__region')
+                field: id
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+
+  - name: stg_tpch__customer
+    description: "Clientes, um por linha."
+    columns:
+      - name: id
+        description: "Chave primária do cliente."
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        description: "Nome do cliente, no formato Customer#000000001."
+      - name: address
+        description: "Endereço do cliente."
+      - name: nation_id
+        description: "FK para stg_tpch__nation."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__nation')
+                field: id
+      - name: phone
+        description: "Telefone, com prefixo derivado do país."
+      - name: account_balance
+        description: "Saldo em conta. Pode ser negativo."
+      - name: market_segment
+        description: "Segmento de mercado (AUTOMOBILE, BUILDING, FURNITURE, HOUSEHOLD, MACHINERY)."
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+
+  - name: stg_tpch__supplier
+    description: "Fornecedores, um por linha."
+    columns:
+      - name: id
+        description: "Chave primária do fornecedor."
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        description: "Nome do fornecedor, no formato Supplier#000000001."
+      - name: address
+        description: "Endereço do fornecedor."
+      - name: nation_id
+        description: "FK para stg_tpch__nation."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__nation')
+                field: id
+      - name: phone
+        description: "Telefone, com prefixo derivado do país."
+      - name: account_balance
+        description: "Saldo em conta. Pode ser negativo."
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+
+  - name: stg_tpch__part
+    description: "Catálogo de peças, uma por linha."
+    columns:
+      - name: id
+        description: "Chave primária da peça."
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        description: "Nome da peça, composto por nomes de cores."
+      - name: manufacturer
+        description: "Fabricante, no formato Manufacturer#1."
+      - name: brand
+        description: "Marca, no formato Brand#11."
+      - name: type
+        description: "Tipo da peça (texto composto, ex.: PROMO BURNISHED COPPER)."
+      - name: size
+        description: "Tamanho nominal da peça."
+      - name: container
+        description: "Tipo de embalagem (ex.: JUMBO BAG, WRAP BOX)."
+      - name: retail_price
+        description: "Preço de tabela da peça."
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+
+  - name: stg_tpch__partsupp
+    description: >
+      Oferta de cada peça por cada fornecedor. Grão composto:
+      uma linha por (part_id, supplier_id). Nenhuma coluna é única sozinha.
+    columns:
+      - name: part_id
+        description: "FK para stg_tpch__part. Parte da chave composta."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__part')
+                field: id
+      - name: supplier_id
+        description: "FK para stg_tpch__supplier. Parte da chave composta."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__supplier')
+                field: id
+      - name: available_quantity
+        description: "Quantidade disponível dessa peça nesse fornecedor."
+      - name: supply_cost
+        description: "Custo de aquisição da peça junto a esse fornecedor."
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+
+  - name: stg_tpch__orders
+    description: "Cabeçalho do pedido, um por linha. Itens ficam em stg_tpch__lineitem."
+    columns:
+      - name: order_id
+        description: "Chave primária do pedido."
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: "FK para stg_tpch__customer."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__customer')
+                field: id
+      - name: status
+        description: "Status do pedido: F (fulfilled), O (open), P (pending)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["F", "O", "P"]
+      - name: total_price
+        description: "Valor total do pedido."
+      - name: order_date
+        description: "Data do pedido. Usada como loaded_at_field da source freshness."
+        data_tests:
+          - not_null
+      - name: priority
+        description: "Prioridade do pedido (ex.: 1-URGENT, 5-LOW)."
+      - name: clerk
+        description: "Funcionário responsável, no formato Clerk#000000001."
+      - name: ship_priority
+        description: "Prioridade de envio. Sempre 0 no dataset TPC-H."
+
+  - name: stg_tpch__lineitem
+    description: >
+      Itens de pedido — a maior tabela do TPC-H. Grão composto:
+      uma linha por (order_id, line_number). Não há chave primária de coluna única.
+    columns:
+      - name: order_id
+        description: >
+          FK para stg_tpch__orders (l_orderkey). Repete-se por item do pedido —
+          não aplicar teste `unique` aqui.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__orders')
+                field: order_id
+      - name: part_id
+        description: "FK para stg_tpch__part."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__part')
+                field: id
+      - name: supplier_id
+        description: "FK para stg_tpch__supplier."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__supplier')
+                field: id
+      - name: line_number
+        description: "Sequencial do item dentro do pedido. Completa a chave composta."
+        data_tests:
+          - not_null
+      - name: quantity
+        description: "Quantidade do item."
+      - name: extended_price
+        description: "Preço estendido (quantidade x preço unitário), antes de desconto e imposto."
+      - name: discount
+        description: "Desconto aplicado, como fração entre 0 e 0.10."
+      - name: tax
+        description: "Imposto aplicado, como fração entre 0 e 0.08."
+      - name: return_flag
+        description: "Indicador de devolução: A (returned), N (not returned), R (returned)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["A", "N", "R"]
+      - name: line_status
+        description: "Status do item: O (open), F (fulfilled)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["O", "F"]
+      - name: ship_date
+        description: "Data de envio do item."
+      - name: commit_date
+        description: "Data prometida de entrega."
+      - name: receipt_date
+        description: "Data de recebimento pelo cliente."
+      - name: ship_instruct
+        description: "Instrução de envio (ex.: DELIVER IN PERSON)."
+      - name: ship_mode
+        description: "Modal de transporte (ex.: TRUCK, MAIL, SHIP)."
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
