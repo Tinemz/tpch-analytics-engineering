@@ -164,6 +164,28 @@ Os testes ficam em `_stg_tpch.yml`, junto da documentação das colunas:
 > sozinha. Aplicar `unique` no `order_id` do `lineitem` é um erro comum — o teste
 > falharia em todo pedido com mais de um item.
 
+**Sintaxe: `arguments:` (dbt 1.10.5+).** Do dbt 1.10.5 em diante — e no dbt
+Fusion, usado aqui — os argumentos de um teste genérico ficam sob a chave
+`arguments:`. A maioria dos tutoriais ainda mostra o formato antigo, com os
+argumentos direto no corpo do teste, e isso **quebra** no parse:
+
+```yaml
+# ❌ formato antigo
+- relationships:
+    to: ref('stg_tpch__region')
+    field: id
+
+# ✅ dbt 1.10.5+
+- relationships:
+    arguments:
+      to: ref('stg_tpch__region')
+      field: id
+    config:
+      severity: warn      # severity/where/limit ficam em `config:`, não em `arguments:`
+```
+
+Testes sem argumento (`unique`, `not_null`) não mudam — continuam sendo só o nome.
+
 Rodar:
 
 ```bash
