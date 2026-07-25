@@ -8,6 +8,15 @@ sources:
       - name: customer
       - name: lineitem
       - name: orders
+        config:
+          freshness:
+            warn_after: 
+              count: 20000
+              period: day
+            error_after: 
+              count: 20000
+              period: day
+          loaded_at_field: "cast(o_orderdate as timestamp)"
       - name: part
       - name: partsupp
       - name: supplier
