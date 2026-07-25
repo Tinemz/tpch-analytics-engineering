@@ -1,0 +1,30 @@
+[sqlfluff]
+# Dialeto do BigQuery e templater Jinja (o templater "dbt" exigiria instalar o
+# dbt-core no venv, que hoje hospeda o binário do dbt Fusion — ver README).
+dialect = bigquery
+templater = jinja
+
+# RF04 aponta colunas com nome de keyword (name, comment). São nomes legítimos
+# no staging do TPC-H e a regra não tem correção automática, então só faria ruído.
+exclude_rules = RF04
+
+[sqlfluff:indentation]
+tab_space_size = 4
+
+# Tudo em minúsculo. Sem isto a política padrão é "consistent", que deixa cada
+# arquivo consistente consigo mesmo — foi o que fez o lineitem virar UPPERCASE
+# enquanto customer/orders seguiam minúsculos.
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.identifiers]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.types]
+extended_capitalisation_policy = lower
