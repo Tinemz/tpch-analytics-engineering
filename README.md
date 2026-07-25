@@ -123,21 +123,46 @@ dbt debug     # deve terminar com "All checks passed!"
 ## 5. O projeto dbt
 
 O projeto vive na pasta `tpch/`. As `sources` apontam para o `tpch_raw` e os
-models de staging renomeiam/limpam as colunas por cima.
+models de staging renomeiam/limpam as colunas por cima. A camada de staging
+cobre as **8 tabelas** do TPC-H.
 
-`tpch/models/staging/_tpch__sources.yml` declara as 8 tabelas cruas. Um model de
-staging fica assim:
+Dois arquivos de configuração organizam a pasta `models/staging/`:
+
+| Arquivo | Papel |
+|---|---|
+| `_src_tpch.yml` | Declara as 8 tabelas cruas em `tpch_raw` e a *source freshness* de `orders`. |
+| `_stg_tpch.yml` | Descreve cada model e coluna, e define os testes. |
+
+Um model de staging fica assim:
 
 ```sql
 -- tpch/models/staging/stg_tpch__orders.sql
 select
-    o_orderkey    as order_id,
-    o_custkey     as customer_id,
+    o_orderkey as order_id,
+    o_custkey as customer_id,
     o_orderstatus as status,
-    o_totalprice  as total_price,
-    o_orderdate   as order_date
+    o_totalprice as total_price,
+    o_orderdate as order_date,
+    o_orderpriority as priority,
+    o_clerk as clerk,
+    o_shippriority as ship_priority
 from {{ source('tpch', 'orders') }}
 ```
+
+### Testes
+
+Os testes ficam em `_stg_tpch.yml`, junto da documentação das colunas:
+
+- **`unique` + `not_null`** nas chaves primárias.
+- **`relationships`** em toda FK — garante que `nation_id`, `customer_id`,
+  `part_id` etc. sempre apontam para uma linha existente no model referenciado.
+- **`accepted_values`** nas colunas categóricas (`orders.status`,
+  `lineitem.return_flag`, `lineitem.line_status`).
+
+> **Grão composto.** `partsupp` (uma linha por `part_id` + `supplier_id`) e
+> `lineitem` (uma linha por `order_id` + `line_number`) **não têm** coluna única
+> sozinha. Aplicar `unique` no `order_id` do `lineitem` é um erro comum — o teste
+> falharia em todo pedido com mais de um item.
 
 Rodar:
 
@@ -147,6 +172,22 @@ dbt run       # constrói os models no BigQuery (dataset tpch_dev)
 dbt test      # roda os testes
 dbt build     # run + test de uma vez
 ```
+
+### Lint do SQL (sqlfluff)
+
+O [sqlfluff](https://sqlfluff.com/) padroniza o SQL dos models. A configuração
+fica no [`.sqlfluff`](.sqlfluff) da raiz:
+
+```bash
+sqlfluff lint tpch/models/staging/    # aponta os problemas
+sqlfluff fix tpch/models/staging/     # corrige o que é automatizável
+```
+
+> **Por que fixar `capitalisation_policy = lower` em vez do padrão?** O padrão do
+> sqlfluff é `consistent`, que só exige que cada arquivo seja consistente
+> **consigo mesmo** — o resultado é um model em MAIÚSCULA e os outros em
+> minúscula, todos "passando" no lint. Fixar a política resolve no nível do
+> projeto.
 
 ## 6. Consultar os dados
 
@@ -240,6 +281,7 @@ Arquivos:
 ├── .github/workflows/
 │   ├── ci.yml                 # CI: dbt build em schema efêmero a cada PR
 │   └── cd.yml                 # CD: dbt build em tpch_prod no merge/manual
+├── .sqlfluff                  # config do lint de SQL (dialeto bigquery)
 ├── create_tpch.ipynb          # leitura exploratória dos Parquet com pandas
 ├── requirements.txt           # tpchgen-cli + libs de exploração
 ├── tpch_dataset/              # dados gerados (ignorado no git)
@@ -249,16 +291,22 @@ Arquivos:
     ├── deploy/
     │   └── profiles.template.yml  # profile de CI/CD (env_var, sem segredo)
     └── models/staging/
-        ├── _tpch__sources.yml
+        ├── _src_tpch.yml      # sources (tpch_raw) + freshness
+        ├── _stg_tpch.yml      # documentação e testes dos models
         ├── stg_tpch__customer.sql
-        └── stg_tpch__orders.sql
+        ├── stg_tpch__lineitem.sql
+        ├── stg_tpch__nation.sql
+        ├── stg_tpch__orders.sql
+        ├── stg_tpch__part.sql
+        ├── stg_tpch__partsupp.sql
+        ├── stg_tpch__region.sql
+        └── stg_tpch__supplier.sql
 ```
 
 ## Próximos passos
 
-- Criar os staging models das demais tabelas (`lineitem`, `part`, `supplier`, ...).
-- Adicionar testes (`unique`, `not_null`) nas chaves em `_tpch__sources.yml`.
 - Construir a camada de marts (fatos e dimensões) sobre os staging models.
+- Rodar o `sqlfluff lint` dentro da CI, para o padrão valer no PR e não só local.
 - Evoluir a CI para **Slim CI** (`state:modified+` com deferral) — rodar só o que mudou.
 - Orquestração dedicada (Dagster) e camada de visualização (Evidence.dev / Lightdash).
 - Definir métricas no **Semantic Layer** (MetricFlow) sobre os marts.
