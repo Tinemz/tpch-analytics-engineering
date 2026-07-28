@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: stg_tpch__partsupp
+    description: >
+      Oferta de cada peça por cada fornecedor. Grão composto:
+      uma linha por (part_id, supplier_id). Nenhuma coluna é única sozinha.
+    columns:
+      - name: part_id
+        description: "FK para stg_tpch__part. Parte da chave composta."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__part')
+                field: id
+      - name: supplier_id
+        description: "FK para stg_tpch__supplier. Parte da chave composta."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__supplier')
+                field: id
+      - name: available_quantity
+        description: "Quantidade disponível dessa peça nesse fornecedor."
+      - name: supply_cost
+        description: "Custo de aquisição da peça junto a esse fornecedor."
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."

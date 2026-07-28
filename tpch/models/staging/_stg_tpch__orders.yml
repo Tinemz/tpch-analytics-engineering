@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: stg_tpch__orders
+    description: "Cabeçalho do pedido, um por linha. Itens ficam em stg_tpch__lineitem."
+    columns:
+      - name: order_id
+        description: "Chave primária do pedido."
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: "FK para stg_tpch__customer."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__customer')
+                field: id
+      - name: status
+        description: "Status do pedido: F (fulfilled), O (open), P (pending)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["F", "O", "P"]
+      - name: total_price
+        description: "Valor total do pedido."
+      - name: order_date
+        description: "Data do pedido. Usada como loaded_at_field da source freshness."
+        data_tests:
+          - not_null
+      - name: priority
+        description: "Prioridade do pedido (ex.: 1-URGENT, 5-LOW)."
+      - name: clerk
+        description: "Funcionário responsável, no formato Clerk#000000001."
+      - name: ship_priority
+        description: "Prioridade de envio. Sempre 0 no dataset TPC-H."
