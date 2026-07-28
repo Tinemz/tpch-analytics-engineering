@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: stg_tpch__customer
+    description: "Clientes, um por linha."
+    columns:
+      - name: id
+        description: "Chave primária do cliente."
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        description: "Nome do cliente, no formato Customer#000000001."
+      - name: address
+        description: "Endereço do cliente."
+      - name: nation_id
+        description: "FK para stg_tpch__nation."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__nation')
+                field: id
+      - name: phone
+        description: "Telefone, com prefixo derivado do país."
+      - name: account_balance
+        description: "Saldo em conta. Pode ser negativo."
+      - name: market_segment
+        description: "Segmento de mercado (AUTOMOBILE, BUILDING, FURNITURE, HOUSEHOLD, MACHINERY)."
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."

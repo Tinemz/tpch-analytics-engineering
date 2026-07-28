@@ -1,0 +1,70 @@
+version: 2
+
+models:
+  - name: stg_tpch__lineitem
+    description: >
+      Itens de pedido — a maior tabela do TPC-H. Grão composto:
+      uma linha por (order_id, line_number). Não há chave primária de coluna única.
+    columns:
+      - name: order_id
+        description: >
+          FK para stg_tpch__orders (l_orderkey). Repete-se por item do pedido —
+          não aplicar teste `unique` aqui.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__orders')
+                field: order_id
+      - name: part_id
+        description: "FK para stg_tpch__part."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__part')
+                field: id
+      - name: supplier_id
+        description: "FK para stg_tpch__supplier."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__supplier')
+                field: id
+      - name: line_number
+        description: "Sequencial do item dentro do pedido. Completa a chave composta."
+        data_tests:
+          - not_null
+      - name: quantity
+        description: "Quantidade do item."
+      - name: extended_price
+        description: "Preço estendido (quantidade x preço unitário), antes de desconto e imposto."
+      - name: discount
+        description: "Desconto aplicado, como fração entre 0 e 0.10."
+      - name: tax
+        description: "Imposto aplicado, como fração entre 0 e 0.08."
+      - name: return_flag
+        description: "Indicador de devolução: A (returned), N (not returned), R (returned)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["A", "N", "R"]
+      - name: line_status
+        description: "Status do item: O (open), F (fulfilled)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["O", "F"]
+      - name: ship_date
+        description: "Data de envio do item."
+      - name: commit_date
+        description: "Data prometida de entrega."
+      - name: receipt_date
+        description: "Data de recebimento pelo cliente."
+      - name: ship_instruct
+        description: "Instrução de envio (ex.: DELIVER IN PERSON)."
+      - name: ship_mode
+        description: "Modal de transporte (ex.: TRUCK, MAIL, SHIP)."
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
