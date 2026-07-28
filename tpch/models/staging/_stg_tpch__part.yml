@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: stg_tpch__part
+    description: "Catálogo de peças, uma por linha."
+    columns:
+      - name: id
+        description: "Chave primária da peça."
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        description: "Nome da peça, composto por nomes de cores."
+      - name: manufacturer
+        description: "Fabricante, no formato Manufacturer#1."
+      - name: brand
+        description: "Marca, no formato Brand#11."
+      - name: type
+        description: "Tipo da peça (texto composto, ex.: PROMO BURNISHED COPPER)."
+      - name: size
+        description: "Tamanho nominal da peça."
+      - name: container
+        description: "Tipo de embalagem (ex.: JUMBO BAG, WRAP BOX)."
+      - name: retail_price
+        description: "Preço de tabela da peça."
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."

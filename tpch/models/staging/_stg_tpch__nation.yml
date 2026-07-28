@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: stg_tpch__nation
+    description: "Países (25 linhas), cada um pertencente a uma região."
+    columns:
+      - name: id
+        description: "Chave primária do país."
+        data_tests:
+          - unique
+          - not_null
+      - name: name
+        description: "Nome do país."
+        data_tests:
+          - not_null
+      - name: region_id
+        description: "FK para stg_tpch__region."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__region')
+                field: id
+      - name: comment
+        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
