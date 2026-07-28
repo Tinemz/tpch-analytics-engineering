@@ -11,10 +11,10 @@ sources:
         config:
           freshness:
             warn_after: 
-              count: 20000
+              count: 11677 #vai dar warn no meu aniversário de 28 anos
               period: day
             error_after: 
-              count: 20000
+              count: 12042 #vai dar error no meu aniversário de 29 anos
               period: day
           loaded_at_field: "cast(o_orderdate as timestamp)"
       - name: part
