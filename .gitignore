@@ -22,3 +22,6 @@ logs/
 gcp-credentials*.json
 # O profiles.yml real fica em ~/.dbt/ — versione apenas o profiles.example.yml
 profiles.yml
+
+# Notas locais de trabalho
+tabelas_construir.md
