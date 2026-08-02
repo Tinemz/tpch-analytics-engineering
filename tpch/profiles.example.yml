@@ -15,4 +15,4 @@ tpch:
       database: SEU_PROJECT_ID       # id do seu projeto no BigQuery
       schema: tpch_dev               # dataset onde o dbt cria os SEUS models
       location: US                   # precisa bater com a região do dataset cru
-      threads: 4
+      threads: 10
