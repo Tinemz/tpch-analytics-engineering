@@ -2,8 +2,6 @@ version: 2
 
 models:
   - name: dim_customer
-    semantic_model:
-      enabled: true
     description: >
       Dimensão de cliente, um por linha. Pass-through de int_customer_enriched,
       onde ficam os testes de integridade desta cadeia.
