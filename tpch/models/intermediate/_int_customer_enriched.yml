@@ -1,0 +1,48 @@
+version: 2
+
+models:
+  - name: int_customer_enriched
+    description: "Clientes enriquecidos com informações de nação e região."
+    columns:
+      - name: customer_id
+        description: '{{ doc("tpch_customer_id") }}'
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_name
+        description: "Nome do cliente, no formato Customer#000000001."
+      - name: customer_address
+        description: '{{ doc("tpch_address") }}'
+      - name: nation_id
+        description: '{{ doc("tpch_nation_id") }}'
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__nation')
+                field: nation_id
+      - name: nation_name
+        description: "Nome do país do cliente, resolvido a partir de stg_tpch__nation."
+        data_tests:
+          - not_null
+      - name: region_id
+        description: '{{ doc("tpch_region_id") }}'
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__region')
+                field: region_id
+      - name: region_name
+        description: "Nome da região do cliente, resolvida a partir da nação."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["AFRICA", "AMERICA", "ASIA", "EUROPE", "MIDDLE EAST"]
+      - name: customer_phone
+        description: '{{ doc("tpch_phone") }}'
+      - name: customer_account_balance
+        description: '{{ doc("tpch_account_balance") }}'
+      - name: customer_market_segment
+        description: "Segmento de mercado (AUTOMOBILE, BUILDING, FURNITURE, HOUSEHOLD, MACHINERY)."
