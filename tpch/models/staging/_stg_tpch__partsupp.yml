@@ -7,24 +7,24 @@ models:
       uma linha por (part_id, supplier_id). Nenhuma coluna é única sozinha.
     columns:
       - name: part_id
-        description: "FK para stg_tpch__part. Parte da chave composta."
+        description: '{{ doc("tpch_part_id") }} Parte da chave composta deste modelo.'
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('stg_tpch__part')
-                field: id
+                field: part_id
       - name: supplier_id
-        description: "FK para stg_tpch__supplier. Parte da chave composta."
+        description: '{{ doc("tpch_supplier_id") }} Parte da chave composta deste modelo.'
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('stg_tpch__supplier')
-                field: id
+                field: supplier_id
       - name: available_quantity
         description: "Quantidade disponível dessa peça nesse fornecedor."
       - name: supply_cost
         description: "Custo de aquisição da peça junto a esse fornecedor."
       - name: comment
-        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+        description: '{{ doc("tpch_comment") }}'

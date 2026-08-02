@@ -5,18 +5,18 @@ models:
     description: "Cabeçalho do pedido, um por linha. Itens ficam em stg_tpch__lineitem."
     columns:
       - name: order_id
-        description: "Chave primária do pedido."
+        description: '{{ doc("tpch_order_id") }}'
         data_tests:
           - unique
           - not_null
       - name: customer_id
-        description: "FK para stg_tpch__customer."
+        description: '{{ doc("tpch_customer_id") }}'
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('stg_tpch__customer')
-                field: id
+                field: customer_id
       - name: status
         description: "Status do pedido: F (fulfilled), O (open), P (pending)."
         data_tests:

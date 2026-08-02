@@ -4,8 +4,8 @@ models:
   - name: stg_tpch__nation
     description: "Países (25 linhas), cada um pertencente a uma região."
     columns:
-      - name: id
-        description: "Chave primária do país."
+      - name: nation_id
+        description: '{{ doc("tpch_nation_id") }}'
         data_tests:
           - unique
           - not_null
@@ -14,12 +14,12 @@ models:
         data_tests:
           - not_null
       - name: region_id
-        description: "FK para stg_tpch__region."
+        description: '{{ doc("tpch_region_id") }}'
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('stg_tpch__region')
-                field: id
+                field: region_id
       - name: comment
-        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+        description: '{{ doc("tpch_comment") }}'

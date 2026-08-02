@@ -1,5 +1,5 @@
 select
-    p_partkey as id,
+    p_partkey as part_id,
     p_name as name,
     p_mfgr as manufacturer,
     p_brand as brand,

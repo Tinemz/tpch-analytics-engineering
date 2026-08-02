@@ -1,5 +1,5 @@
 select
-    s_suppkey as id,
+    s_suppkey as supplier_id,
     s_name as name,
     s_address as address,
     s_nationkey as nation_id,

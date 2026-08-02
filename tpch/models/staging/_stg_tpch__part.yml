@@ -4,8 +4,8 @@ models:
   - name: stg_tpch__part
     description: "Catálogo de peças, uma por linha."
     columns:
-      - name: id
-        description: "Chave primária da peça."
+      - name: part_id
+        description: '{{ doc("tpch_part_id") }}'
         data_tests:
           - unique
           - not_null
@@ -24,4 +24,4 @@ models:
       - name: retail_price
         description: "Preço de tabela da peça."
       - name: comment
-        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+        description: '{{ doc("tpch_comment") }}'
