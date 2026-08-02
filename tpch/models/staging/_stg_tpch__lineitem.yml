@@ -7,9 +7,7 @@ models:
       uma linha por (order_id, line_number). Não há chave primária de coluna única.
     columns:
       - name: order_id
-        description: >
-          FK para stg_tpch__orders (l_orderkey). Repete-se por item do pedido —
-          não aplicar teste `unique` aqui.
+        description: '{{ doc("tpch_order_id") }} Repete-se por item do pedido: não aplicar teste `unique` aqui.'
         data_tests:
           - not_null
           - relationships:
@@ -17,21 +15,21 @@ models:
                 to: ref('stg_tpch__orders')
                 field: order_id
       - name: part_id
-        description: "FK para stg_tpch__part."
+        description: '{{ doc("tpch_part_id") }}'
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('stg_tpch__part')
-                field: id
+                field: part_id
       - name: supplier_id
-        description: "FK para stg_tpch__supplier."
+        description: '{{ doc("tpch_supplier_id") }}'
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('stg_tpch__supplier')
-                field: id
+                field: supplier_id
       - name: line_number
         description: "Sequencial do item dentro do pedido. Completa a chave composta."
         data_tests:
@@ -67,4 +65,4 @@ models:
       - name: ship_mode
         description: "Modal de transporte (ex.: TRUCK, MAIL, SHIP)."
       - name: comment
-        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+        description: '{{ doc("tpch_comment") }}'

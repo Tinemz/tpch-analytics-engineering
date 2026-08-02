@@ -4,8 +4,8 @@ models:
   - name: stg_tpch__region
     description: "Regiões geográficas (5 linhas). Topo da hierarquia region -> nation."
     columns:
-      - name: id
-        description: "Chave primária da região."
+      - name: region_id
+        description: '{{ doc("tpch_region_id") }}'
         data_tests:
           - unique
           - not_null
@@ -17,4 +17,4 @@ models:
                 values: ["AFRICA", "AMERICA", "ASIA", "EUROPE", "MIDDLE EAST"]
           - not_null
       - name: comment
-        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+        description: '{{ doc("tpch_comment") }}'

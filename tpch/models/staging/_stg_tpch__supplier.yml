@@ -4,26 +4,26 @@ models:
   - name: stg_tpch__supplier
     description: "Fornecedores, um por linha."
     columns:
-      - name: id
-        description: "Chave primária do fornecedor."
+      - name: supplier_id
+        description: '{{ doc("tpch_supplier_id") }}'
         data_tests:
           - unique
           - not_null
       - name: name
         description: "Nome do fornecedor, no formato Supplier#000000001."
       - name: address
-        description: "Endereço do fornecedor."
+        description: '{{ doc("tpch_address") }}'
       - name: nation_id
-        description: "FK para stg_tpch__nation."
+        description: '{{ doc("tpch_nation_id") }}'
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('stg_tpch__nation')
-                field: id
+                field: nation_id
       - name: phone
-        description: "Telefone, com prefixo derivado do país."
+        description: '{{ doc("tpch_phone") }}'
       - name: account_balance
-        description: "Saldo em conta. Pode ser negativo."
+        description: '{{ doc("tpch_account_balance") }}'
       - name: comment
-        description: "Texto livre gerado pelo TPC-H, sem valor analítico."
+        description: '{{ doc("tpch_comment") }}'
