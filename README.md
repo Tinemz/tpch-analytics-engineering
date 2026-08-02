@@ -8,7 +8,7 @@ os dados localmente, carrega no **BigQuery** e modela com **[dbt](https://www.ge
 flowchart LR
     A[tpchgen-cli<br/>Parquet local] -->|bq load| B[(BigQuery<br/>dataset tpch_raw)]
     B -->|dbt sources| C[dbt Fusion]
-    C -->|dbt run| D[(BigQuery<br/>dataset tpch_dev<br/>models)]
+    C -->|dbt run| D[(BigQuery<br/>tpch_dev_staging<br/>tpch_dev_intermediate<br/>tpch_dev_marts)]
     D --> E[DBeaver / BigQuery Studio]
 ```
 
@@ -107,7 +107,7 @@ tpch:
       database: SEU_PROJECT_ID       # id do seu projeto GCP
       schema: tpch_dev               # dataset onde o dbt cria os models
       location: US                   # precisa bater com o dataset tpch_raw
-      threads: 4
+      threads: 10
 ```
 
 3. Valide a conexão (de dentro de `tpch/`):
@@ -118,7 +118,11 @@ dbt debug     # deve terminar com "All checks passed!"
 ```
 
 > Repare na separação: os dados **crus** ficam em `tpch_raw`; o dbt constrói os
-> **seus models** em `tpch_dev`. Nunca escrevemos por cima do dataset cru.
+> **seus models** a partir de `tpch_dev`. Nunca escrevemos por cima do dataset cru.
+>
+> O `schema` do perfil é apenas o **prefixo**: o `dbt_project.yml` acrescenta o
+> nome da camada, então os models saem em `tpch_dev_staging`,
+> `tpch_dev_intermediate` e `tpch_dev_marts`. Ver [Camadas](#camadas).
 
 ## 5. O projeto dbt
 
@@ -126,12 +130,43 @@ O projeto vive na pasta `tpch/`. As `sources` apontam para o `tpch_raw` e os
 models de staging renomeiam/limpam as colunas por cima. A camada de staging
 cobre as **8 tabelas** do TPC-H.
 
-Dois arquivos de configuração organizam a pasta `models/staging/`:
+### Camadas
+
+Cada camada materializa num dataset próprio, configurado no `dbt_project.yml`:
+
+| Camada | Materialização | Dataset (dev) | Papel |
+|---|---|---|---|
+| `staging` | `view` | `tpch_dev_staging` | 1:1 com a source: renomeia e limpa, sem regra de negócio |
+| `intermediate` | `table` | `tpch_dev_intermediate` | junta staging models; é onde ficam os testes de integridade |
+| `marts` | `table` | `tpch_dev_marts` | modelo de consumo (`dim_`, `fct_`), sem prefixo de fonte |
+
+**Convenção de nome muda por camada** — e essa é a parte que mais confunde:
+
+| Camada | Padrão | Exemplo |
+|---|---|---|
+| staging | `stg_<fonte>__<entidade>` | `stg_tpch__customer` |
+| intermediate | `int_<entidade>_<verbo>` | `int_customer_enriched` |
+| marts | `dim_<entidade>` / `fct_<entidade>` | `dim_customer` |
+
+O `__` duplo da staging é um separador com semântica: *tudo antes dele é o
+sistema de origem*. Ele existe porque um dia pode haver `stg_shopify__customer`
+e `stg_salesforce__customer`. Da intermediate para frente esse problema não
+existe — o model já vem de vários stagings — então **o nome da fonte não é
+carregado adiante**, senão vaza o sistema de origem para a camada que o analista
+lê.
+
+> ⚠️ **O `_` inicial é só para arquivos de propriedades** (`.yml`, `.md`), para
+> ordená-los no topo da pasta. Num `.sql` ele vira parte do **nome do model**:
+> `_int_customer.sql` cria um model chamado `_int_customer`, e você teria que
+> escrever `ref('_int_customer')` para sempre.
+
+### Arquivos de configuração
 
 | Arquivo | Papel |
 |---|---|
-| `_src_tpch.yml` | Declara as 8 tabelas cruas em `tpch_raw` e a *source freshness* de `orders`. |
-| `_stg_tpch.yml` | Descreve cada model e coluna, e define os testes. |
+| `staging/_src_tpch.yml` | Declara as 8 tabelas cruas em `tpch_raw` e a *source freshness* de `orders`. |
+| `staging/_stg_tpch__<model>.yml` | Um arquivo por model: descreve colunas e define os testes. |
+| `models/_stg_tpch__docs.md` | Blocos de documentação reutilizáveis (ver [Doc blocks](#doc-blocks)). |
 
 Um model de staging fica assim:
 
@@ -151,7 +186,7 @@ from {{ source('tpch', 'orders') }}
 
 ### Testes
 
-Os testes ficam em `_stg_tpch.yml`, junto da documentação das colunas:
+Os testes ficam no `.yml` do model, junto da documentação das colunas:
 
 - **`unique` + `not_null`** nas chaves primárias.
 - **`relationships`** em toda FK — garante que `nation_id`, `customer_id`,
@@ -173,27 +208,79 @@ argumentos direto no corpo do teste, e isso **quebra** no parse:
 # ❌ formato antigo
 - relationships:
     to: ref('stg_tpch__region')
-    field: id
+    field: region_id
 
 # ✅ dbt 1.10.5+
 - relationships:
     arguments:
       to: ref('stg_tpch__region')
-      field: id
+      field: region_id
     config:
       severity: warn      # severity/where/limit ficam em `config:`, não em `arguments:`
 ```
 
 Testes sem argumento (`unique`, `not_null`) não mudam — continuam sendo só o nome.
 
+**Nome da chave primária.** A PK de cada model é `<entidade>_id` (`customer_id`,
+`region_id`), nunca um `id` genérico. Com `id`, todo join vira `a.id = b.id` e o
+`field:` do `relationships` não diz a que se refere.
+
+> ⚠️ **Renomear uma coluna quebra quem a referencia.** O `to`/`field` do
+> `relationships` aponta para a coluna do model de **destino**. Trocar `as id` por
+> `as region_id` num `.sql` obriga a atualizar todo `field: id` que apontava para
+> ele — em outros arquivos. O `dbt parse` **não** pega isso; só o `dbt build`.
+
+**Onde colocar o teste.** Quando um mart é *pass-through* de um intermediate, os
+testes ficam no **intermediate** e o mart leva só documentação — repetir validaria
+a mesma coisa duas vezes, gastando query. Se o mart deixar de ser pass-through,
+os testes precisam acompanhar.
+
 Rodar:
 
 ```bash
 cd tpch
-dbt run       # constrói os models no BigQuery (dataset tpch_dev)
+dbt run       # constrói os models no BigQuery (tpch_dev_*)
 dbt test      # roda os testes
 dbt build     # run + test de uma vez
 ```
+
+### Doc blocks
+
+Descrições que se repetem entre models viram blocos reutilizáveis em
+`tpch/models/_stg_tpch__docs.md`. O nome do arquivo `.md` é livre — o dbt varre
+todos os `.md` dentro dos `docs-paths` e junta os blocos num namespace único do
+projeto. O que precisa ser único é o **nome do bloco**, não o do arquivo.
+
+```markdown
+{% docs tpch_customer_id %}
+Identificador único do cliente no TPC-H (`c_custkey`).
+Chave primária em `stg_tpch__customer`; chave estrangeira nos demais modelos.
+{% enddocs %}
+```
+
+```yaml
+- name: customer_id
+  description: '{{ doc("tpch_customer_id") }}'   # aspas simples: o YAML se perde nas chaves
+```
+
+**Critério.** Bloco para o que repete em vários models (`comment` estava copiado
+em 7) e para chave que aparece como PK num model e FK noutro. Inline para o de
+uso único.
+
+> **Descreva o conceito, não a posição.** Um bloco que diz "chave primária do
+> cliente" não pode ser reusado em `orders.customer_id`, onde a mesma coluna é FK.
+> Escrevendo "identificador único do cliente", ele serve nas duas pontas.
+
+Para juntar o bloco com uma nuance local, basta concatenar — o Jinja renderiza
+inline:
+
+```yaml
+description: '{{ doc("tpch_supplier_id") }} Parte da chave composta deste modelo.'
+```
+
+O conteúdo é **Markdown**: crase (`` ` ``) vira código, apóstrofo (`'`) é texto
+comum. Para ver renderizado: `dbt compile --write-catalog --write-index` e depois
+`dbt docs serve`.
 
 ### Lint do SQL (sqlfluff)
 
@@ -230,7 +317,8 @@ account, autentique com **Application Default Credentials** (as mesmas do dbt):
 
 ```sql
 select * from `SEU_PROJECT_ID.tpch_raw.orders` limit 100;
-select * from `SEU_PROJECT_ID.tpch_dev.stg_tpch__orders` limit 100;
+select * from `SEU_PROJECT_ID.tpch_dev_staging.stg_tpch__orders` limit 100;
+select * from `SEU_PROJECT_ID.tpch_dev_marts.dim_customer` limit 100;
 ```
 
 ## 7. Troubleshooting
@@ -243,6 +331,9 @@ Erros reais que apareceram montando este projeto e como resolver:
 | `Dataset ... was not found in location us-east1` | `location` do perfil não bate com a região do dataset (`US`) | Usar `location: US` no `profiles.yml` |
 | `Storage API is not available for query` | Consequência do DNS instável (falha ao buscar o token OAuth) | Corrigir o DNS (acima) |
 | "A criação da chave da conta de serviço está desativada" | Org policy `iam.disableServiceAccountKeyCreation` | Não precisa de chave — use `method: oauth` (ADC) |
+| Passa no `dbt parse` local mas **quebra no CI** | Local roda **Fusion** (preview); a CI roda **dbt Core** via `pip install dbt-bigquery`. As validações não são as mesmas | Tratar o CI como fonte da verdade, ou fixar a versão nos workflows |
+| `The semantic layer requires a time spine model with granularity DAY or smaller` | `semantic_model: enabled: true` faz o dbt registrar um semantic model, e o MetricFlow exige um model de *time spine* | Criar o time spine junto, ou remover o `semantic_model` até desenvolver a camada |
+| `relationships` falha em massa depois de renomear coluna | O `field:` aponta para a coluna do model de destino, que mudou de nome | Atualizar todo `field:` que referencia o model renomeado |
 
 ## 8. CI/CD (GitHub Actions)
 
@@ -327,23 +418,29 @@ Arquivos:
     ├── profiles.example.yml   # modelo de ~/.dbt/profiles.yml (dev, oauth)
     ├── deploy/
     │   └── profiles.template.yml  # profile de CI/CD (env_var, sem segredo)
-    └── models/staging/
-        ├── _src_tpch.yml      # sources (tpch_raw) + freshness
-        ├── _stg_tpch.yml      # documentação e testes dos models
-        ├── stg_tpch__customer.sql
-        ├── stg_tpch__lineitem.sql
-        ├── stg_tpch__nation.sql
-        ├── stg_tpch__orders.sql
-        ├── stg_tpch__part.sql
-        ├── stg_tpch__partsupp.sql
-        ├── stg_tpch__region.sql
-        └── stg_tpch__supplier.sql
+    └── models/
+        ├── _stg_tpch__docs.md         # doc blocks reutilizáveis
+        ├── staging/                   # views, 1:1 com as sources
+        │   ├── _src_tpch.yml          # sources (tpch_raw) + freshness
+        │   ├── _stg_tpch__customer.yml    # um .yml por model
+        │   ├── ...
+        │   ├── stg_tpch__customer.sql
+        │   └── ...                    # 8 models, um por tabela do TPC-H
+        ├── intermediate/              # tables, junções e testes
+        │   ├── _int_customer_enriched.yml
+        │   └── int_customer_enriched.sql
+        └── marts/                     # tables, camada de consumo
+            ├── _dim_customer.yml
+            └── dim_customer.sql
 ```
 
 ## Próximos passos
 
-- Construir a camada de marts (fatos e dimensões) sobre os staging models.
+- Ampliar os marts: fatos (`fct_orders`, `fct_lineitem`) e as demais dimensões.
+- Fixar a versão do dbt nos workflows — hoje é `pip install dbt-bigquery` sem pin,
+  e a divergência com o Fusion local já deixou passar erro que só quebrou na CI.
 - Rodar o `sqlfluff lint` dentro da CI, para o padrão valer no PR e não só local.
 - Evoluir a CI para **Slim CI** (`state:modified+` com deferral) — rodar só o que mudou.
 - Orquestração dedicada (Dagster) e camada de visualização (Evidence.dev / Lightdash).
-- Definir métricas no **Semantic Layer** (MetricFlow) sobre os marts.
+- Definir métricas no **Semantic Layer** (MetricFlow) sobre os marts — lembrando
+  que exige um model de *time spine* com granularidade `DAY` ou menor.
