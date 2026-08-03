@@ -18,6 +18,9 @@ clean-targets:
 
 models:
   tpch:
+    utils:
+      +materialized: table
+      +schema: utils
     staging:
       +materialized: view
       +schema: staging
