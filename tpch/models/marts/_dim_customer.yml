@@ -2,27 +2,50 @@ version: 2
 
 models:
   - name: dim_customer
+    semantic_model:
+      enabled: true
     description: >
       Dimensão de cliente, um por linha. Pass-through de int_customer_enriched,
       onde ficam os testes de integridade desta cadeia.
     columns:
       - name: customer_id
         description: '{{ doc("tpch_customer_id") }}'
+        entity: primary
+
       - name: customer_name
         description: "Nome do cliente, no formato Customer#000000001."
+
       - name: customer_address
         description: '{{ doc("tpch_address") }}'
+
       - name: nation_id
         description: '{{ doc("tpch_nation_id") }}'
+        entity: foreign
+
       - name: nation_name
         description: "Nome do país do cliente."
+        dimension:
+          type: categorical
+          name: nation_name
+
       - name: region_id
         description: '{{ doc("tpch_region_id") }}'
+        entity: foreign
+
       - name: region_name
         description: "Nome da região do cliente."
+        dimension:
+          type: categorical
+          name: region_name
+
       - name: customer_phone
         description: '{{ doc("tpch_phone") }}'
+
       - name: customer_account_balance
         description: '{{ doc("tpch_account_balance") }}'
+
       - name: customer_market_segment
         description: "Segmento de mercado (AUTOMOBILE, BUILDING, FURNITURE, HOUSEHOLD, MACHINERY)."
+        dimension:
+          type: categorical
+          name: market_segment

@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: time_spine_day
+    description: >
+      Calendário com uma linha por dia, exigido pelo MetricFlow para resolver
+      métricas ao longo do tempo. O TPC-H não tem tabela de datas nem data de
+      cadastro em customer — as únicas datas do dataset estão em orders e
+      lineitem, então o intervalo vem de orders.
+    time_spine:
+      standard_granularity_column: date_day
+    columns:
+      - name: date_day
+        description: "Data, uma linha por dia. Granularidade padrão do time spine."
+        granularity: day
+        data_tests:
+          - unique
+          - not_null
