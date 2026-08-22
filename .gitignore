@@ -15,6 +15,8 @@ target/
 dbt_packages/
 logs/
 .user.yml
+# manifest de prod baixado pela CI pra servir de --state (Slim CI)
+prod-state/
 
 # Env / secrets
 .env

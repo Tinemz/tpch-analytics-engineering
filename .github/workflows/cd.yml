@@ -53,3 +53,19 @@ jobs:
       # Diferente da CI, aqui NÃO há schema efêmero nem drop — é persistente.
       - name: dbt build (produção -> tpch_prod)
         run: dbt build --target prod
+
+      # Publica o manifest.json desta build como artifact. É o "retrato" do
+      # projeto como ele existe em prod: quais modelos, com que SQL, apontando
+      # pra que relations. A CI baixa esse arquivo e usa como --state, e é a
+      # comparação contra ele que define o `state:modified` de cada PR.
+      #
+      # Sem `if: always()` de propósito: só publicamos o manifest de uma build
+      # que DEU CERTO. Um manifest de build quebrada descreveria um prod que
+      # não existe, e a CI passaria a deferir pra tabelas ausentes.
+      - name: Publica o manifest de prod
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-manifest
+          path: tpch/target/manifest.json
+          retention-days: 90
+          if-no-files-found: error
