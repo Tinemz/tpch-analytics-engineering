@@ -14,6 +14,12 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# O GITHUB_TOKEN precisa de `actions: read` pra baixar o artifact publicado
+# por outro workflow (o cd.yml). `contents: read` é o checkout.
+permissions:
+  contents: read
+  actions: read
+
 # Todos os comandos rodam de dentro da pasta do projeto dbt.
 defaults:
   run:
@@ -55,20 +61,89 @@ jobs:
           mkdir -p ~/.dbt
           cp deploy/profiles.template.yml ~/.dbt/profiles.yml
 
-      # O coração da CI: constrói os modelos + roda os testes no schema isolado.
-      - name: dbt build (schema isolado do PR)
-        run: dbt build --target ci
+      # Busca o manifest.json da última CD de prod que passou. Ele é o
+      # "estado anterior" contra o qual o dbt vai diffar este PR.
+      # continue-on-error: se não existir (primeiro run do repo, artifact
+      # expirado, prod nunca deployado), a CI NÃO pode quebrar — o passo
+      # seguinte detecta a ausência e cai pra build completa.
+      - name: Baixa o manifest de prod (state)
+        id: state
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          run_id=$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow=cd.yml --branch=main --status=success \
+            --limit 1 --json databaseId --jq '.[0].databaseId')
 
-      # Limpeza: dropa o schema do PR SEMPRE (mesmo se o build falhar),
+          if [ -z "$run_id" ]; then
+            echo "Nenhuma execução bem-sucedida do cd.yml em main."
+            exit 1
+          fi
+
+          echo "Usando o manifest da run $run_id do cd.yml."
+          gh run download "$run_id" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name prod-manifest \
+            --dir prod-state
+
+      # O coração da CI. Dois modos, decididos pela presença do state:
+      #
+      #  SLIM (tem manifest): --select state:modified+  --defer --state
+      #    Constrói só o que mudou neste PR E o que está a jusante dele, tudo
+      #    no schema efêmero. Os ref() que apontam pra modelos FORA da seleção
+      #    (o upstream) resolvem pras tabelas de tpch_prod_* — elas já foram
+      #    construídas e testadas pelo CD, reconstruir seria desperdício.
+      #    O downstream é reconstruído de propósito: é ele que revela se a
+      #    mudança quebrou alguma coisa. Esse é o ponto inteiro do `+`.
+      #
+      #  COMPLETO (sem manifest): dbt build
+      #    Sem retrato de prod não há diff possível, então constrói tudo.
+      - name: dbt build (schema isolado do PR)
+        run: |
+          set -euo pipefail
+          if [ -f prod-state/manifest.json ]; then
+            echo "::notice::Slim CI — construindo state:modified+ com defer pra prod."
+            dbt build --target ci \
+              --select state:modified+ \
+              --defer --state prod-state
+          else
+            echo "::notice::Sem manifest de prod — caindo pra build completa."
+            dbt build --target ci
+          fi
+
+      # Limpeza: dropa os schemas do PR SEMPRE (mesmo se o build falhar),
       # pra não deixar dataset órfão acumulando no BigQuery.
-      - name: Dropa o schema de CI
+      #
+      # ATENÇÃO: o dbt NÃO cria um dataset chamado DBT_CI_SCHEMA. Como o
+      # dbt_project.yml define `+schema:` por camada e não há macro
+      # generate_schema_name custom, vale o padrão <target>_<camada>:
+      #   dbt_ci_pr_42_staging, _intermediate, _marts, _utils
+      # Por isso varremos por PREFIXO em vez de dropar um nome só — a versão
+      # anterior dropava `dbt_ci_pr_42` (que nunca existiu) e deixava os quatro
+      # datasets reais para trás.
+      - name: Dropa os schemas de CI
         if: always()
         run: |
           python - <<'PY'
           import os
           from google.cloud import bigquery
-          client = bigquery.Client(project=os.environ["GCP_PROJECT"])
-          ds = f"{os.environ['GCP_PROJECT']}.{os.environ['DBT_CI_SCHEMA']}"
-          client.delete_dataset(ds, delete_contents=True, not_found_ok=True)
-          print("dropped", ds)
+
+          project = os.environ["GCP_PROJECT"]
+          prefix = os.environ["DBT_CI_SCHEMA"]
+          client = bigquery.Client(project=project)
+
+          dropped = []
+          for ds in client.list_datasets(project):
+              name = ds.dataset_id
+              # O `_` no startswith evita que o PR 1 apague os datasets do PR 12.
+              if name == prefix or name.startswith(prefix + "_"):
+                  client.delete_dataset(
+                      ds.reference, delete_contents=True, not_found_ok=True
+                  )
+                  dropped.append(name)
+
+          print("dropped:", ", ".join(dropped) if dropped else "(nenhum)")
           PY
