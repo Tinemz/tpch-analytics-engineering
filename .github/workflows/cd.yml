@@ -8,6 +8,10 @@ on:
     branches: [main]
     paths:
       - "tpch/**"
+      # O workflow observa a si mesmo: sem esta linha, um PR que muda só o
+      # pipeline de deploy entra na main sem nunca rodar o deploy — a mudança
+      # fica sem validação até alguém, por acaso, tocar em tpch/.
+      - ".github/workflows/cd.yml"
   workflow_dispatch:
 
 # Deploys de produção NUNCA se cancelam no meio: se dois merges caírem juntos,
