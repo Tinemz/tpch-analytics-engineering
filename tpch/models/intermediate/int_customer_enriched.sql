@@ -8,6 +8,7 @@ select
     region.name as region_name,
     customer.phone as customer_phone,
     customer.account_balance as customer_account_balance,
+    customer.account_balance < 0 as customer_has_negative_balance,
     customer.market_segment as customer_market_segment
 from {{ ref('stg_tpch__customer') }} as customer
 left join {{ ref('stg_tpch__nation') }} as nation

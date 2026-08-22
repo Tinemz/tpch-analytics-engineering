@@ -44,5 +44,13 @@ models:
         description: '{{ doc("tpch_phone") }}'
       - name: customer_account_balance
         description: '{{ doc("tpch_account_balance") }}'
+      - name: customer_has_negative_balance
+        description: >
+          Flag de saldo devedor. No TPC-H o account_balance é gerado no
+          intervalo [-999.99, 9999.99], então saldo negativo é dado legítimo,
+          não sujeira — vale isolar a condição aqui em vez de repetir o
+          predicado em cada consumidor a jusante.
+        data_tests:
+          - not_null
       - name: customer_market_segment
         description: "Segmento de mercado (AUTOMOBILE, BUILDING, FURNITURE, HOUSEHOLD, MACHINERY)."
