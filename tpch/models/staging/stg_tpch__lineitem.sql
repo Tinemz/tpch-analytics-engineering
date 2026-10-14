@@ -9,9 +9,9 @@ select
     l_tax as tax,
     l_returnflag as return_flag,
     l_linestatus as line_status,
-    l_shipdate as ship_date,
-    l_commitdate as commit_date,
-    l_receiptdate as receipt_date,
+    {{ shift_tpch_date('l_shipdate') }} as ship_date,
+    {{ shift_tpch_date('l_commitdate') }} as commit_date,
+    {{ shift_tpch_date('l_receiptdate') }} as receipt_date,
     l_shipinstruct as ship_instruct,
     l_shipmode as ship_mode,
     l_comment as comment

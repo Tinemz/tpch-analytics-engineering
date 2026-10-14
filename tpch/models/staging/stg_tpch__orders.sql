@@ -3,7 +3,7 @@ select
     o_custkey as customer_id,
     o_orderstatus as status,
     o_totalprice as total_price,
-    o_orderdate as order_date,
+    {{ shift_tpch_date('o_orderdate') }} as order_date,
     o_orderpriority as priority,
     o_clerk as clerk,
     o_shippriority as ship_priority
