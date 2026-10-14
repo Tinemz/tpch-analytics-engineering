@@ -1,0 +1,5 @@
+# Versão do dbt usada em todo lugar: CI, CD, a imagem do servidor MCP e o venv local
+# (`uv venv && uv pip install -r semantic_layer_mcp/requirements.txt`). Pinada para que
+# o que passa numa máquina passe em todas. Teto do dbt-core: dbt-metricflow exige <1.13.
+dbt-core==1.12.5
+dbt-bigquery==1.12.1

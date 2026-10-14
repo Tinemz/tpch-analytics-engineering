@@ -1,0 +1,11 @@
+# Só o que a imagem usa: o projeto dbt e o pacote do servidor.
+*
+!Dockerfile
+!semantic_layer_mcp/
+!tpch/
+semantic_layer_mcp/tests/
+**/__pycache__/
+tpch/target/
+tpch/logs/
+tpch/dbt_packages/
+tpch/prod-state/

@@ -16,11 +16,13 @@ silêncio e as tools passam a expor ``context`` como parâmetro para o LLM.
 
 import logging
 import os
+from typing import Any
 
 from dbt_mcp.config.config_providers import SemanticLayerConfig, StaticConfigProvider
 from dbt_mcp.semantic_layer.tools import SEMANTIC_LAYER_TOOLS, SemanticLayerToolContext
 from dbt_mcp.tools.register import register_tools
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from .engine import SemanticLayerEngine, build_engine
 from .fetcher import MetricFlowFetcher
@@ -66,8 +68,9 @@ class LocalSemanticLayerContext(SemanticLayerToolContext):
         self.semantic_layer_fetcher = fetcher
 
 
-def create_server(engine: SemanticLayerEngine | None = None) -> FastMCP:
-    """Monta o servidor. ``engine`` existe para os testes injetarem um engine offline.
+def create_server(engine: SemanticLayerEngine | None = None, **settings: Any) -> FastMCP:
+    """Monta o servidor. ``engine`` existe para os testes injetarem um engine offline;
+    ``settings`` vai direto para o ``FastMCP`` (caminho e modo do transporte HTTP).
 
     A anotação de retorno de ``bind_context`` é a classe base de propósito, mesmo devolvendo a
     subclasse: é com ela que o ``adapt_with_mapper`` compara.
@@ -87,6 +90,7 @@ def create_server(engine: SemanticLayerEngine | None = None) -> FastMCP:
             "válidos e query_metrics para consultar. As métricas carregam regras de negócio "
             "próprias: use a definição da camada, nunca recalcule a partir das tabelas."
         ),
+        **settings,
     )
     register_tools(
         mcp,
@@ -105,11 +109,70 @@ def quiet_metricflow_logs() -> None:
         logging.getLogger(name).setLevel(os.environ.get("MF_LOG_LEVEL", "WARNING"))
 
 
+_MIN_SECRET_CHARS = 32
+
+
+def http_path() -> str:
+    """Caminho do endpoint HTTP, com a chave secreta nele.
+
+    O conector personalizado do claude.ai não manda cabeçalho de autenticação, só a URL,
+    então a chave vai no caminho: quem não tem a URL inteira recebe 404 em qualquer rota.
+    """
+    secret = os.environ.get("MCP_PATH_SECRET", "")
+    if len(secret) < _MIN_SECRET_CHARS or not secret.replace("-", "").replace("_", "").isalnum():
+        raise SystemExit(
+            f"MCP_PATH_SECRET precisa de pelo menos {_MIN_SECRET_CHARS} caracteres de "
+            "[A-Za-z0-9_-]. Gere com: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+        )
+    return f"/mcp/{secret}"
+
+
+def http_settings(path: str) -> dict[str, Any]:
+    """Settings do FastMCP para HTTP público.
+
+    A proteção contra DNS rebinding do SDK é desligada de propósito: ela serve a servidor
+    em localhost acessado por navegador, e ligada só aceita ``Host: localhost``, o que
+    recusaria com 421 toda chamada que chega pelo domínio do Cloud Run.
+    """
+    return {
+        "host": "0.0.0.0",
+        "streamable_http_path": path,
+        "stateless_http": True,
+        "json_response": True,
+        "transport_security": TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    }
+
+
+def run_http() -> None:
+    """Sobe em streamable HTTP, para o Cloud Run.
+
+    Sem estado por sessão (``stateless_http``): cada chamada é independente, então qualquer
+    instância atende qualquer requisição e o Cloud Run pode escalar ou derrubar instâncias à
+    vontade. O uvicorn roda sem log de acesso porque cada linha teria a chave no caminho.
+    """
+    import uvicorn
+
+    app = create_server(**http_settings(http_path())).streamable_http_app()
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", "8080")),
+        access_log=False,
+        log_level=os.environ.get("LOG_LEVEL", "INFO").lower(),
+    )
+
+
 def main() -> None:
-    """Sobe em stdio. Todo log vai para stderr: em stdio o stdout é o canal JSON-RPC."""
+    """Sobe em stdio (padrão) ou HTTP (``MCP_TRANSPORT=http``).
+
+    Em stdio todo log vai para stderr: o stdout é o canal JSON-RPC.
+    """
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
     quiet_metricflow_logs()
-    create_server().run(transport="stdio")
+    if os.environ.get("MCP_TRANSPORT", "stdio") == "http":
+        run_http()
+    else:
+        create_server().run(transport="stdio")
 
 
 if __name__ == "__main__":

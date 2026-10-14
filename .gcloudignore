@@ -1,0 +1,11 @@
+# Mesmo filtro do .dockerignore: o que o gcloud envia para o Cloud Build.
+*
+!Dockerfile
+!semantic_layer_mcp/
+!tpch/
+semantic_layer_mcp/tests/
+**/__pycache__/
+tpch/target/
+tpch/logs/
+tpch/dbt_packages/
+tpch/prod-state/

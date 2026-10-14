@@ -1,0 +1,18 @@
+# Profile do servidor MCP no Cloud Run. A imagem copia este arquivo para
+# /app/profiles/profiles.yml. Sem segredo: o oauth pega a credencial da service
+# account do próprio Cloud Run (Application Default Credentials).
+#
+# As travas de custo ficam aqui porque toda consulta do servidor passa por este
+# profile: nenhuma lê mais de 5 GB nem roda por mais de 2 minutos.
+tpch:
+  target: prod
+  outputs:
+    prod:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT', 'dbt-learning-tinem') }}"
+      dataset: tpch_prod
+      location: US
+      threads: 1
+      maximum_bytes_billed: 5000000000
+      job_execution_timeout_seconds: 120
