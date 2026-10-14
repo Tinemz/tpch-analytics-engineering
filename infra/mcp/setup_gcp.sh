@@ -86,10 +86,12 @@ gcloud iam service-accounts add-iam-policy-binding "$SA" --project "$PROJECT" \
   --member "serviceAccount:$CD_SA" --role roles/iam.serviceAccountUser --format=none
 
 step "Cota de BigQuery: ${QUERY_MIB_PER_USER_DAY} MiB por identidade por dia"
-curl -sS -X POST \
+# O padrão é ilimitado, e o Google recusa reduzir mais de 10% sem a confirmação
+# explícita de ignoreSafetyChecks. PATCH com allowMissing cria ou atualiza.
+curl -sS -X PATCH \
   -H "Authorization: Bearer $(gcloud auth print-access-token)" \
   -H "x-goog-user-project: $PROJECT" -H "Content-Type: application/json" \
-  "https://cloudquotas.googleapis.com/v1/projects/$PROJECT/locations/global/quotaPreferences?quotaPreferenceId=bq-query-per-user-day" \
+  "https://cloudquotas.googleapis.com/v1/projects/$PROJECT/locations/global/quotaPreferences/bq-query-per-user-day?allowMissing=true&ignoreSafetyChecks=QUOTA_DECREASE_PERCENTAGE_TOO_HIGH" \
   -d "{\"service\":\"bigquery.googleapis.com\",\"quotaId\":\"QueryUsagePerUserPerDay\",\"quotaConfig\":{\"preferredValue\":\"$QUERY_MIB_PER_USER_DAY\"},\"dimensions\":{}}" \
   | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("error",{}).get("message") or "cota pedida: " + d["quotaConfig"]["preferredValue"] + " MiB")'
 
