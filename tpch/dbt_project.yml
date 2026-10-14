@@ -39,3 +39,11 @@ models:
 seeds:
   tpch:
     +schema: seeds
+
+flags:
+  # O dbt-core 1.12 converte o `window` das métricas cumulativas do formato novo
+  # para type_params.window e, com esta flag ligada (padrão), recusa o próprio
+  # resultado. O manifest sai com o window nos dois lugares e o MetricFlow lê
+  # normalmente; desligada, vira só um aviso de depreciação. O Fusion não tem o
+  # problema. Rever ao subir a versão do dbt-core.
+  require_nested_cumulative_type_params: false
