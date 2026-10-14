@@ -55,11 +55,11 @@ models:
               arguments:
                 values: ["O", "F"]
       - name: ship_date
-        description: "Data de envio do item."
+        description: "Data de envio do item, deslocada pela macro shift_tpch_date."
       - name: commit_date
-        description: "Data prometida de entrega."
+        description: "Data prometida de entrega, deslocada pela macro shift_tpch_date."
       - name: receipt_date
-        description: "Data de recebimento pelo cliente."
+        description: "Data de recebimento pelo cliente, deslocada pela macro shift_tpch_date."
       - name: ship_instruct
         description: "Instrução de envio (ex.: DELIVER IN PERSON)."
       - name: ship_mode
