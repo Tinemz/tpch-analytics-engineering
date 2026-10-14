@@ -82,8 +82,12 @@ for role in roles/run.sourceDeveloper roles/serviceusage.serviceUsageConsumer; d
   gcloud projects add-iam-policy-binding "$PROJECT" --member "serviceAccount:$CD_SA" \
     --role "$role" --condition=None --format=none
 done
-gcloud iam service-accounts add-iam-policy-binding "$SA" --project "$PROJECT" \
-  --member "serviceAccount:$CD_SA" --role roles/iam.serviceAccountUser --format=none
+# Atuar como a conta do servidor (que a revisão usa) e como a do Compute (que o
+# Cloud Build usa para o build a partir do código-fonte).
+for target_sa in "$SA" "$COMPUTE_SA"; do
+  gcloud iam service-accounts add-iam-policy-binding "$target_sa" --project "$PROJECT" \
+    --member "serviceAccount:$CD_SA" --role roles/iam.serviceAccountUser --format=none
+done
 
 step "Cota de BigQuery: ${QUERY_MIB_PER_USER_DAY} MiB por identidade por dia"
 # O padrão é ilimitado, e o Google recusa reduzir mais de 10% sem a confirmação
