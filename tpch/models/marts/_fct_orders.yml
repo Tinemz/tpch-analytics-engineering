@@ -127,3 +127,91 @@ models:
         type: ratio
         numerator: net_revenue
         denominator: order_count
+
+      # Métricas complexas: razões por cliente, crescimento e acumulados.
+
+      - name: revenue_per_customer
+        label: Receita por cliente
+        description: "Receita líquida dividida pelos clientes que fizeram pedido no período."
+        type: ratio
+        numerator: net_revenue
+        denominator: customers_with_orders
+
+      - name: orders_per_customer
+        label: Pedidos por cliente
+        description: "Pedidos divididos pelos clientes que fizeram pedido no período."
+        type: ratio
+        numerator: order_count
+        denominator: customers_with_orders
+
+      - name: units_per_order
+        label: Unidades por pedido
+        description: "Itens vendidos (soma das quantidades) divididos pelo número de pedidos."
+        type: ratio
+        numerator: items_sold
+        denominator: order_count
+
+      - name: net_revenue_yoy_growth
+        label: Crescimento anual da receita
+        description: >
+          Variação da receita líquida contra o mesmo período do ano anterior, entre
+          -1 e 1 (0,05 = 5%). Exige metric_time na consulta.
+        type: derived
+        expr: (receita_atual - receita_ano_anterior) / nullif(receita_ano_anterior, 0)
+        input_metrics:
+          - name: net_revenue
+            alias: receita_atual
+          - name: net_revenue
+            alias: receita_ano_anterior
+            offset_window: 1 year
+
+      - name: net_revenue_mom_growth
+        label: Crescimento mensal da receita
+        description: >
+          Variação da receita líquida contra o mês anterior (0,05 = 5%). Exige
+          metric_time na consulta, de preferência por mês.
+        type: derived
+        expr: (receita_atual - receita_mes_anterior) / nullif(receita_mes_anterior, 0)
+        input_metrics:
+          - name: net_revenue
+            alias: receita_atual
+          - name: net_revenue
+            alias: receita_mes_anterior
+            offset_window: 1 month
+
+      - name: net_revenue_ytd
+        label: Receita no ano até a data
+        description: >
+          Receita líquida acumulada desde 1º de janeiro. Por mês, mostra o valor
+          acumulado no último dia do mês.
+          Consulte sozinha ou com métricas simples: junto de outras acumuladas a
+          consulta passa do limite de CPU do BigQuery.
+        type: cumulative
+        grain_to_date: year
+        period_agg: last
+        input_metric: net_revenue
+
+      - name: net_revenue_trailing_12m
+        label: Receita dos últimos 12 meses
+        description: >
+          Receita líquida dos 12 meses anteriores a cada data. Tira a sazonalidade.
+          Exige metric_time na consulta.
+          Consulte sozinha ou com métricas simples: junto de outras acumuladas a
+          consulta passa do limite de CPU do BigQuery.
+        type: cumulative
+        window: 12 months
+        period_agg: last
+        input_metric: net_revenue
+
+      - name: active_customers_90d
+        label: Clientes ativos em 90 dias
+        description: >
+          Clientes distintos com pelo menos um pedido nos 90 dias anteriores a cada
+          data. Exige metric_time na consulta.
+          Consulte sozinha ou com métricas simples: junto de outras acumuladas a
+          consulta passa do limite de CPU do BigQuery.
+        type: cumulative
+        window: 90 days
+        period_agg: last
+        input_metric: customers_with_orders
+

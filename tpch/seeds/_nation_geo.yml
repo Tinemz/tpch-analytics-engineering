@@ -1,0 +1,40 @@
+version: 2
+
+seeds:
+  - name: nation_geo
+    description: >
+      Dados geográficos dos 25 países do TPC-H: nome em português, códigos ISO e
+      o ponto central aproximado do país. Os países do TPC-H são reais, então dá
+      para desenhar mapas e animações por localidade.
+    config:
+      column_types:
+        nation_id: int64
+        latitude: float64
+        longitude: float64
+    columns:
+      - name: nation_id
+        description: '{{ doc("tpch_nation_id") }}'
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_tpch__nation')
+                field: nation_id
+      - name: nation_name
+        description: "Nome do país como vem do TPC-H, em inglês e maiúsculas. Só para conferência."
+      - name: country_pt
+        description: "Nome do país em português."
+        data_tests:
+          - not_null
+      - name: iso2
+        description: "Código ISO 3166-1 alfa-2 do país."
+      - name: iso3
+        description: "Código ISO 3166-1 alfa-3 do país, o que bibliotecas de mapa usam."
+        data_tests:
+          - unique
+          - not_null
+      - name: latitude
+        description: "Latitude do ponto central aproximado do país."
+      - name: longitude
+        description: "Longitude do ponto central aproximado do país."

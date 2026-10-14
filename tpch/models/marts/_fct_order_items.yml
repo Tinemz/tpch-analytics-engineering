@@ -31,6 +31,22 @@ models:
         description: '{{ doc("tpch_supplier_id") }}'
         entity: foreign
 
+      - name: customer_id
+        description: '{{ doc("tpch_customer_id") }}'
+        entity: foreign
+
+      - name: customer_nation_id
+        description: "País do cliente. Base da métrica de países atendidos."
+
+      - name: supplier_nation_id
+        description: "País do fornecedor."
+
+      - name: trade_type
+        description: "nacional quando cliente e fornecedor são do mesmo país, internacional quando não."
+        dimension:
+          type: categorical
+          name: trade_type
+
       - name: ship_date
         description: "Data de envio do item."
         granularity: day
@@ -38,6 +54,18 @@ models:
           type: time
         data_tests:
           - not_null
+
+      - name: commit_date
+        description: "Data prometida de entrega."
+
+      - name: receipt_date
+        description: "Data em que o cliente recebeu."
+
+      - name: delivery_days
+        description: "Dias entre o envio e o recebimento."
+
+      - name: late_flag
+        description: "1 quando o item chegou depois da data prometida, 0 quando não."
 
       - name: ship_mode
         description: "Modal de envio (AIR, FOB, MAIL, RAIL, REG AIR, SHIP, TRUCK)."
@@ -69,8 +97,17 @@ models:
       - name: discount_amount
         description: "Valor do desconto: extended_price * discount."
 
+      - name: supply_cost
+        description: "Custo unitário que o fornecedor cobra pela peça."
+
+      - name: cost_amount
+        description: "Custo do item: supply_cost * quantity."
+
       - name: net_revenue
         description: "Receita líquida do item: extended_price * (1 - discount)."
+
+      - name: profit
+        description: "Lucro do item: net_revenue - cost_amount. É o lucro da consulta 9 do TPC-H."
 
     metrics:
       - name: line_items
@@ -111,3 +148,97 @@ models:
         expr: net_revenue
         filter: |
           {{ Dimension('order_item_id__return_flag') }} = 'R'
+
+      # Métricas complexas e de localidade.
+
+      - name: shipped_gross_revenue
+        label: Receita bruta enviada
+        description: "Soma de extended_price dos itens, antes do desconto, no tempo pela data de envio."
+        type: simple
+        agg: sum
+        expr: extended_price
+
+      - name: cost_amount
+        label: Custo dos itens
+        description: "Soma do custo do fornecedor (supply_cost x quantidade) dos itens enviados."
+        type: simple
+        agg: sum
+        expr: cost_amount
+
+      - name: profit
+        label: Lucro
+        description: "Receita líquida menos o custo do fornecedor, nos itens enviados."
+        type: simple
+        agg: sum
+        expr: profit
+
+      - name: gross_margin
+        label: Margem
+        description: "Lucro dividido pela receita líquida dos itens enviados. Entre 0 e 1."
+        type: ratio
+        numerator: profit
+        denominator: shipped_net_revenue
+
+      - name: effective_discount_rate
+        label: Desconto efetivo
+        description: >
+          Desconto concedido dividido pela receita bruta. Diferente do desconto
+          médio, pesa cada item pelo seu valor.
+        type: ratio
+        numerator: discount_amount
+        denominator: shipped_gross_revenue
+
+      - name: return_rate
+        label: Taxa de devolução
+        description: >
+          Receita devolvida dividida pela receita líquida dos itens enviados. O
+          TPC-H só marca devolução em itens recebidos até 17/06/2023; depois disso
+          todo item vem como N (sem avaliação) e a taxa fica vazia.
+        type: ratio
+        numerator: returned_revenue
+        denominator: shipped_net_revenue
+
+      - name: late_items
+        label: Itens atrasados
+        description: "Itens que chegaram depois da data prometida."
+        type: simple
+        agg: sum
+        expr: late_flag
+
+      - name: late_delivery_rate
+        label: Taxa de atraso
+        description: "Itens atrasados divididos pelo total de itens enviados."
+        type: ratio
+        numerator: late_items
+        denominator: line_items
+
+      - name: average_delivery_days
+        label: Dias até a entrega
+        description: "Média de dias entre o envio e o recebimento."
+        type: simple
+        agg: average
+        expr: delivery_days
+
+      - name: cross_border_revenue
+        label: Receita internacional
+        description: "Receita líquida dos itens em que fornecedor e cliente são de países diferentes."
+        type: simple
+        agg: sum
+        expr: net_revenue
+        filter: |
+          {{ Dimension('order_item_id__trade_type') }} = 'internacional'
+
+      - name: cross_border_share
+        label: Participação internacional
+        description: "Receita internacional dividida pela receita líquida dos itens enviados."
+        type: ratio
+        numerator: cross_border_revenue
+        denominator: shipped_net_revenue
+
+      - name: countries_served
+        label: Países atendidos
+        description: "Quantidade de países diferentes dos clientes que receberam envios no período."
+        type: simple
+        agg: count_distinct
+        expr: customer_nation_id
+

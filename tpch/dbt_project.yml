@@ -35,3 +35,7 @@ models:
     marts:
       +materialized: table
       +schema: marts
+
+seeds:
+  tpch:
+    +schema: seeds
