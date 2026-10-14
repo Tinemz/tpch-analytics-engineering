@@ -1,0 +1,129 @@
+version: 2
+
+models:
+  - name: fct_orders
+    semantic_model:
+      enabled: true
+    agg_time_dimension: order_date
+    description: >
+      Fato de pedidos, um por linha. Receita e quantidades vêm de
+      stg_tpch__lineitem agregado por pedido; o cliente liga em dim_customer
+      pela entidade customer_id.
+    columns:
+      - name: order_id
+        description: '{{ doc("tpch_order_id") }}'
+        entity: primary
+        data_tests:
+          - unique
+          - not_null
+
+      - name: order_id_first_digit
+        description: >
+          Primeiro dígito do order_id, como texto. Existe só para a regra de
+          negócio da métrica `receita`.
+        dimension:
+          type: categorical
+          name: order_id_first_digit
+
+      - name: customer_id
+        description: '{{ doc("tpch_customer_id") }}'
+        entity: foreign
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_id
+
+      - name: order_date
+        description: "Data do pedido."
+        granularity: day
+        dimension:
+          type: time
+        data_tests:
+          - not_null
+
+      - name: order_status
+        description: "Status do pedido: F (fulfilled), O (open), P (pending)."
+        dimension:
+          type: categorical
+          name: order_status
+
+      - name: order_priority
+        description: "Prioridade do pedido (ex.: 1-URGENT, 5-LOW)."
+        dimension:
+          type: categorical
+          name: order_priority
+
+      - name: total_price
+        description: "Valor total do pedido, como vem do cabeçalho (o_totalprice)."
+
+      - name: item_count
+        description: "Quantidade de itens (linhas de lineitem) do pedido."
+
+      - name: total_quantity
+        description: "Soma das quantidades dos itens."
+
+      - name: gross_revenue
+        description: "Receita bruta: soma de extended_price dos itens."
+
+      - name: net_revenue
+        description: "Receita líquida: soma de extended_price * (1 - discount) dos itens."
+
+    metrics:
+      - name: order_count
+        label: Pedidos
+        description: "Número de pedidos."
+        type: simple
+        # sum de 1, não count: o dbt-core reescreve count para sum no parse e o
+        # Fusion não, então o MetricFlow recusa o manifest com agg: count.
+        agg: sum
+        expr: "1"
+
+      - name: customers_with_orders
+        label: Clientes com pedido
+        description: "Clientes distintos que fizeram pelo menos um pedido no período."
+        type: simple
+        agg: count_distinct
+        expr: customer_id
+
+      - name: gross_revenue
+        label: Receita bruta
+        description: "Soma de extended_price dos itens, antes do desconto."
+        type: simple
+        agg: sum
+        expr: gross_revenue
+
+      - name: net_revenue
+        label: Receita líquida
+        description: "Soma de extended_price * (1 - discount) dos itens."
+        type: simple
+        agg: sum
+        expr: net_revenue
+
+      - name: items_sold
+        label: Itens vendidos
+        description: "Soma das quantidades dos itens."
+        type: simple
+        agg: sum
+        expr: total_quantity
+
+      - name: receita
+        label: Receita
+        description: >
+          Receita oficial da empresa. REGRA DE NEGÓCIO: soma a receita líquida
+          (extended_price * (1 - discount)) APENAS dos pedidos cujo order_id
+          começa com o dígito 1. Pedidos com qualquer outro primeiro dígito não
+          entram. Não é o mesmo número que net_revenue.
+        type: simple
+        agg: sum
+        expr: net_revenue
+        filter: |
+          {{ Dimension('order_id__order_id_first_digit') }} = '1'
+
+      - name: average_order_value
+        label: Ticket médio
+        description: "Receita líquida dividida pelo número de pedidos."
+        type: ratio
+        numerator: net_revenue
+        denominator: order_count

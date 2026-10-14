@@ -1,0 +1,113 @@
+version: 2
+
+models:
+  - name: fct_order_items
+    semantic_model:
+      enabled: true
+    agg_time_dimension: ship_date
+    description: >
+      Fato de itens de pedido, um por linha de lineitem. Liga em fct_orders pelo
+      pedido, em dim_part pela peça e em dim_supplier pelo fornecedor.
+    columns:
+      - name: order_item_id
+        description: "Chave do item: order_id e line_number concatenados com hífen."
+        entity: primary
+        data_tests:
+          - unique
+          - not_null
+
+      - name: order_id
+        description: '{{ doc("tpch_order_id") }}'
+        entity: foreign
+
+      - name: line_number
+        description: "Número da linha dentro do pedido."
+
+      - name: part_id
+        description: '{{ doc("tpch_part_id") }}'
+        entity: foreign
+
+      - name: supplier_id
+        description: '{{ doc("tpch_supplier_id") }}'
+        entity: foreign
+
+      - name: ship_date
+        description: "Data de envio do item."
+        granularity: day
+        dimension:
+          type: time
+        data_tests:
+          - not_null
+
+      - name: ship_mode
+        description: "Modal de envio (AIR, FOB, MAIL, RAIL, REG AIR, SHIP, TRUCK)."
+        dimension:
+          type: categorical
+          name: ship_mode
+
+      - name: return_flag
+        description: "R (devolvido), A (aceito), N (nenhum)."
+        dimension:
+          type: categorical
+          name: return_flag
+
+      - name: line_status
+        description: "O (aberto) ou F (finalizado)."
+        dimension:
+          type: categorical
+          name: line_status
+
+      - name: quantity
+        description: "Quantidade do item."
+
+      - name: extended_price
+        description: "Preço estendido do item (quantidade x preço unitário)."
+
+      - name: discount
+        description: "Desconto aplicado, entre 0 e 0,10."
+
+      - name: discount_amount
+        description: "Valor do desconto: extended_price * discount."
+
+      - name: net_revenue
+        description: "Receita líquida do item: extended_price * (1 - discount)."
+
+    metrics:
+      - name: line_items
+        label: Itens de pedido
+        description: "Número de linhas de item."
+        type: simple
+        # sum de 1, não count: o dbt-core reescreve count para sum no parse e o
+        # Fusion não, então o MetricFlow recusa o manifest com agg: count.
+        agg: sum
+        expr: "1"
+
+      - name: shipped_net_revenue
+        label: Receita líquida enviada
+        description: "Receita líquida dos itens, no tempo pela data de envio."
+        type: simple
+        agg: sum
+        expr: net_revenue
+
+      - name: discount_amount
+        label: Desconto concedido
+        description: "Soma do valor de desconto dos itens."
+        type: simple
+        agg: sum
+        expr: discount_amount
+
+      - name: average_discount
+        label: Desconto médio
+        description: "Média simples do percentual de desconto por item."
+        type: simple
+        agg: average
+        expr: discount
+
+      - name: returned_revenue
+        label: Receita devolvida
+        description: "Receita líquida dos itens devolvidos (return_flag = R)."
+        type: simple
+        agg: sum
+        expr: net_revenue
+        filter: |
+          {{ Dimension('order_item_id__return_flag') }} = 'R'

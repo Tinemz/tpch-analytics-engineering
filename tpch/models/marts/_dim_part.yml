@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: dim_part
+    semantic_model:
+      enabled: true
+    description: "Dimensão de peça, uma por linha."
+    columns:
+      - name: part_id
+        description: '{{ doc("tpch_part_id") }}'
+        entity: primary
+        data_tests:
+          - unique
+          - not_null
+
+      - name: part_name
+        description: "Nome da peça."
+
+      - name: manufacturer
+        description: "Fabricante, no formato Manufacturer#1."
+        dimension:
+          type: categorical
+          name: manufacturer
+
+      - name: brand
+        description: "Marca, no formato Brand#11."
+        dimension:
+          type: categorical
+          name: brand
+
+      - name: part_type
+        description: "Tipo da peça (ex.: ECONOMY ANODIZED STEEL)."
+        dimension:
+          type: categorical
+          name: part_type
+
+      - name: part_size
+        description: "Tamanho da peça, de 1 a 50."
+
+      - name: container
+        description: "Embalagem (ex.: SM BOX, LG CASE)."
+        dimension:
+          type: categorical
+          name: container
+
+      - name: retail_price
+        description: "Preço de varejo da peça."

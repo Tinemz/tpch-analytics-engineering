@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: dim_supplier
+    semantic_model:
+      enabled: true
+    description: "Dimensão de fornecedor, um por linha, com país e região."
+    columns:
+      - name: supplier_id
+        description: '{{ doc("tpch_supplier_id") }}'
+        entity: primary
+        data_tests:
+          - unique
+          - not_null
+
+      - name: supplier_name
+        description: "Nome do fornecedor, no formato Supplier#000000001."
+
+      - name: nation_id
+        description: '{{ doc("tpch_nation_id") }}'
+
+      - name: supplier_nation_name
+        description: "País do fornecedor."
+        dimension:
+          type: categorical
+          name: supplier_nation_name
+
+      - name: supplier_region_name
+        description: "Região do fornecedor."
+        dimension:
+          type: categorical
+          name: supplier_region_name
+
+      - name: supplier_account_balance
+        description: '{{ doc("tpch_account_balance") }}'
