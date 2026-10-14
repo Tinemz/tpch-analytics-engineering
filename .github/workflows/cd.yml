@@ -12,6 +12,10 @@ on:
       # pipeline de deploy entra na main sem nunca rodar o deploy — a mudança
       # fica sem validação até alguém, por acaso, tocar em tpch/.
       - ".github/workflows/cd.yml"
+      # O servidor MCP sai junto: a imagem carrega as definições de métrica do
+      # commit, então toda mudança na camada semântica republica o servidor.
+      - "semantic_layer_mcp/**"
+      - "Dockerfile"
   workflow_dispatch:
 
 # Deploys de produção NUNCA se cancelam no meio: se dois merges caírem juntos,
@@ -41,7 +45,8 @@ jobs:
           python-version: "3.12"
 
       - name: Instala o dbt (adapter BigQuery)
-        run: pip install dbt-bigquery
+        # Mesmas versões do servidor MCP e do venv local (tpch/requirements.txt).
+        run: pip install -r requirements.txt
 
       - name: Escreve o keyfile a partir do secret
         env:
@@ -73,3 +78,34 @@ jobs:
           path: tpch/target/manifest.json
           retention-days: 90
           if-no-files-found: error
+
+  # Republica o servidor MCP no Cloud Run com o código e as métricas deste commit.
+  # Só depois do dbt build: a imagem nova consulta tabelas que acabaram de ser
+  # reconstruídas. Conta de serviço, chave da URL e limites ficam como o
+  # infra/mcp/setup_gcp.sh deixou; aqui só troca a imagem.
+  deploy-mcp:
+    needs: deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Autentica no GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Instala o gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy no Cloud Run
+        run: |
+          gcloud run deploy tpch-semantic-layer \
+            --source . \
+            --project "$GCP_PROJECT" \
+            --region us-central1 \
+            --quiet
+

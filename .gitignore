@@ -28,5 +28,6 @@ profiles.yml
 # Notas locais de trabalho
 tabelas_construir.md
 
-# Ambiente do servidor MCP da camada semântica
+# Venv local (dbt + servidor MCP) e o antigo, só do servidor
+.venv/
 .venv-sl/

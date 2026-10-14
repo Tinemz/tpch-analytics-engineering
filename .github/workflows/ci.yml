@@ -46,7 +46,8 @@ jobs:
           python-version: "3.12"
 
       - name: Instala o dbt (adapter BigQuery)
-        run: pip install dbt-bigquery
+        # Mesmas versões do servidor MCP e do venv local (tpch/requirements.txt).
+        run: pip install -r requirements.txt
 
       # Materializa o segredo num arquivo. Usa env var + printf (nunca echo do
       # secret direto) pra evitar injeção e lidar bem com o JSON multi-linha.

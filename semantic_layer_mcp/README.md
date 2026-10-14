@@ -51,25 +51,26 @@ falha operacional.
 
 ## Rodar
 
-Python 3.12, a partir da raiz do repositório:
+Python 3.12, a partir da raiz do repositório. O venv traz o mesmo dbt-core da CI e do CD
+(`tpch/requirements.txt`), então serve também para rodar o dbt localmente:
 
 ```bash
-uv venv --python 3.12 .venv-sl
-VIRTUAL_ENV=.venv-sl uv pip install -r semantic_layer_mcp/requirements.txt
-(cd tpch && dbt parse)
+uv venv --python 3.12 .venv
+VIRTUAL_ENV=.venv uv pip install -r semantic_layer_mcp/requirements.txt
+(cd tpch && ../.venv/bin/dbt parse)
 ```
 
 Testes, offline:
 
 ```bash
-PYTHONPATH=. .venv-sl/bin/pytest semantic_layer_mcp/tests -q
+PYTHONPATH=. .venv/bin/pytest semantic_layer_mcp/tests -q
 ```
 
-Registrar no Claude Code (stdio). A autenticação é a do `profiles.yml` do projeto: OAuth via
+Registrar no Claude Code em stdio, lendo o dev pela sua máquina. A autenticação é a do `profiles.yml` do projeto: OAuth via
 `gcloud auth application-default login`, sem chave de service account.
 
 ```bash
-claude mcp add tpch-semantic-layer --scope user -e PYTHONPATH=$(pwd) -e LOG_LEVEL=WARNING -- $(pwd)/.venv-sl/bin/python -m semantic_layer_mcp.server
+claude mcp add tpch-semantic-layer --scope user -e PYTHONPATH=$(pwd) -e LOG_LEVEL=WARNING -- $(pwd)/.venv/bin/python -m semantic_layer_mcp.server
 ```
 
 | Variável | Default | Observação |
@@ -79,10 +80,43 @@ claude mcp add tpch-semantic-layer --scope user -e PYTHONPATH=$(pwd) -e LOG_LEVE
 | `SL_DEFAULT_QUERY_LIMIT` | `5000` | Teto quando o agente não passa `limit`. `0` desliga |
 | `SL_MAX_QUERY_LIMIT` | `100000` | Teto absoluto, também para `limit` explícito |
 | `MF_LOG_LEVEL` | `WARNING` | Log do MetricFlow, que em INFO escreve o plano inteiro |
+| `MCP_TRANSPORT` | `stdio` | `http` sobe em streamable HTTP (o modo do Cloud Run) |
+| `MCP_PATH_SECRET` | | Só em HTTP. Chave no caminho: o endpoint fica em `/mcp/<chave>` |
+| `PORT` | `8080` | Só em HTTP |
 
 **Qual ambiente ele lê** é decidido pelo manifest, não pelo servidor: as tabelas de cada
 semantic model saem do target usado no `dbt parse`. Com o `dev` do profile, são as de
 `tpch_dev_marts`.
+
+## Online (Cloud Run)
+
+O mesmo servidor roda no Cloud Run, lendo as tabelas de produção, e atende o Claude Code e
+os dashboards do claude.ai pela mesma URL.
+
+- **Imagem:** o `Dockerfile` da raiz roda `dbt parse --target prod` no build, então cada
+  imagem carrega as métricas do commit que a gerou. O CD republica a cada merge na `main`
+  que toca `tpch/`, `semantic_layer_mcp/` ou o `Dockerfile`, depois do `dbt build`.
+- **Acesso:** o conector personalizado do claude.ai só manda a URL, sem cabeçalho de
+  autenticação, então a chave vai no caminho (`/mcp/<chave>`); qualquer outro caminho dá
+  404. A chave fica no Secret Manager e não aparece em log: o uvicorn roda sem log de acesso.
+- **Custo:** escala até zero e cabe no nível gratuito. As travas ficam no
+  `tpch/deploy/profiles.mcp.yml` (5 GB e 2 minutos por consulta), no Cloud Run (no máximo
+  2 instâncias) e numa cota de BigQuery de 30 GiB por identidade por dia.
+
+Montar o ambiente uma vez, logado como dono do projeto (conta de serviço, secret, cota,
+alerta de orçamento e o primeiro deploy):
+
+```bash
+bash infra/mcp/setup_gcp.sh
+```
+
+Conectar, com a URL que `bash infra/mcp/url.sh` imprime (trate como senha):
+
+```bash
+claude mcp add tpch-semantic-layer --scope user --transport http "$(bash infra/mcp/url.sh)"
+```
+
+No claude.ai: Settings, Connectors, adicionar conector personalizado e colar a mesma URL.
 
 ## A métrica `receita`
 
