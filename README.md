@@ -177,12 +177,17 @@ select
     o_custkey as customer_id,
     o_orderstatus as status,
     o_totalprice as total_price,
-    o_orderdate as order_date,
+    {{ shift_tpch_date('o_orderdate') }} as order_date,
     o_orderpriority as priority,
     o_clerk as clerk,
     o_shippriority as ship_priority
 from {{ source('tpch', 'orders') }}
 ```
+
+O gerador produz datas de 1992 a 1998. A macro `shift_tpch_date` soma 28 anos
+(variável `tpch_years_offset` no `dbt_project.yml`) e leva tudo para 2020 a 2026.
+Com 28 anos o calendário se repete: dia da semana e anos bissextos ficam iguais.
+A `tpch_raw` continua como o gerador produziu.
 
 ### Testes
 

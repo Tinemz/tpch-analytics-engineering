@@ -12,6 +12,11 @@ macro-paths: ["macros"]
 snapshot-paths: ["snapshots"]
 
 target-path: "target"
+vars:
+  # Anos somados às datas do TPC-H no staging (macro shift_tpch_date). 28 leva 1992-1998
+  # para 2020-2026 mantendo dia da semana e anos bissextos.
+  tpch_years_offset: 28
+
 clean-targets:
   - "target"
   - "dbt_packages"
