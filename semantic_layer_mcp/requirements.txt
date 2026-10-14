@@ -1,0 +1,10 @@
+# Servidor MCP da camada semântica. Python 3.12.
+#
+# dbt-mcp pinado exato: o servidor usa símbolos internos dele (SemanticLayerFetcher,
+# SemanticLayerToolContext, register_tools), não há API pública de extensão. Subir a versão
+# exige rodar os testes e conferir o diff de dbt_mcp/semantic_layer/ e dbt_mcp/tools/.
+dbt-mcp==2.1.2
+dbt-metricflow==0.14.0
+dbt-core==1.12.4
+dbt-bigquery==1.12.1
+pytest

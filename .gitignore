@@ -27,3 +27,6 @@ profiles.yml
 
 # Notas locais de trabalho
 tabelas_construir.md
+
+# Ambiente do servidor MCP da camada semântica
+.venv-sl/
