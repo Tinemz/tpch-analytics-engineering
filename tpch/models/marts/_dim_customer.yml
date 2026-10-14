@@ -28,6 +28,30 @@ models:
           type: categorical
           name: nation_name
 
+      - name: country_pt
+        description: "País do cliente, em português."
+        dimension:
+          type: categorical
+          name: country_pt
+
+      - name: country_iso3
+        description: "Código ISO alfa-3 do país do cliente, para mapas."
+        dimension:
+          type: categorical
+          name: country_iso3
+
+      - name: country_latitude
+        description: "Latitude do ponto central aproximado do país do cliente."
+        dimension:
+          type: categorical
+          name: country_latitude
+
+      - name: country_longitude
+        description: "Longitude do ponto central aproximado do país do cliente."
+        dimension:
+          type: categorical
+          name: country_longitude
+
       - name: region_id
         description: '{{ doc("tpch_region_id") }}'
         entity: foreign

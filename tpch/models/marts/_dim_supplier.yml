@@ -25,6 +25,30 @@ models:
           type: categorical
           name: supplier_nation_name
 
+      - name: supplier_country_pt
+        description: "País do fornecedor, em português."
+        dimension:
+          type: categorical
+          name: supplier_country_pt
+
+      - name: supplier_country_iso3
+        description: "Código ISO alfa-3 do país do fornecedor, para mapas."
+        dimension:
+          type: categorical
+          name: supplier_country_iso3
+
+      - name: supplier_country_latitude
+        description: "Latitude do ponto central aproximado do país do fornecedor."
+        dimension:
+          type: categorical
+          name: supplier_country_latitude
+
+      - name: supplier_country_longitude
+        description: "Longitude do ponto central aproximado do país do fornecedor."
+        dimension:
+          type: categorical
+          name: supplier_country_longitude
+
       - name: supplier_region_name
         description: "Região do fornecedor."
         dimension:

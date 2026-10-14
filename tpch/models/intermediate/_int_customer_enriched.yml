@@ -25,6 +25,16 @@ models:
         description: "Nome do país do cliente, resolvido a partir de stg_tpch__nation."
         data_tests:
           - not_null
+      - name: country_pt
+        description: "Nome do país em português, do seed nation_geo."
+        data_tests:
+          - not_null
+      - name: country_iso3
+        description: "Código ISO alfa-3 do país."
+      - name: country_latitude
+        description: "Latitude do ponto central aproximado do país."
+      - name: country_longitude
+        description: "Longitude do ponto central aproximado do país."
       - name: region_id
         description: '{{ doc("tpch_region_id") }}'
         data_tests:
